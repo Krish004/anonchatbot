@@ -1,7 +1,7 @@
 import asyncio
 
+from bot_service import init_bot
 from service import user_service, dialog_service, queue_service
-from service.bot_service import init_bot
 
 
 def prepare_db():

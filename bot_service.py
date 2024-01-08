@@ -45,6 +45,22 @@ async def start(message: Message,
         await send_user_profile(message)
 
 
+async def send_user_profile(message: Message):
+    """
+    Like a main menu of bot
+    From here you can see or change your profile, start chatting
+    """
+    user: User = user_service.get_user_by_chat_id(message.chat.id)
+
+    fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="profile")
+    start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search")
+    rules_button = InlineKeyboardButton(text="📕 Правила", callback_data="rules")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button], [rules_button]])
+
+    await message.answer(text=user.get_profile(),
+                         reply_markup=markup)
+
+
 async def fill_profile(message: Message):
     """
     Starts the chain of filling the profile
@@ -113,21 +129,52 @@ async def process_ask_name(message: Message,
     await send_user_profile(message)
 
 
-async def send_user_profile(message: Message):
-    user: User = user_service.get_user_by_chat_id(message.chat.id)
-
-    fill_profile_button = InlineKeyboardButton(text="Заповинти профіль наново", callback_data="profile")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button]])
-
-    await message.answer(text=user.get_profile(),
-                         reply_markup=markup)
+@dp.callback_query(lambda c: c.data == 'change-profile')
+async def send_profile(callback_query: CallbackQuery):
+    """ On pressing change profile button """
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+    await fill_profile(callback_query.message)
 
 
 @dp.callback_query(lambda c: c.data == 'profile')
 async def send_profile(callback_query: CallbackQuery):
+    """ On pressing my profile button """
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
-    await fill_profile(callback_query.message)
+    await send_user_profile(callback_query.message)
+
+
+@dp.callback_query(lambda c: c.data == 'rules')
+async def send_rules(callback_query: CallbackQuery):
+    """ On pressing rules button """
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+
+    fill_profile_button = InlineKeyboardButton(text="👤 Мій профіль", callback_data="profile")
+    start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button]])
+
+    await callback_query.message.answer(
+        text="""
+📌Правила спілкування в Анонімному чаті:
+
+1. Будь-які згадки про психоактивні речовини (наркотики).
+2. Дитяча порнографія ("ЦП").
+3. Шахрайство (Scam).
+4. Будь-яка реклама, спам.
+5. Продаж будь-чого (наприклад - продаж інтимних фотографій, відео).
+6. Будь-які дії, які порушують правила Telegram.
+7. Образлива поведінка.
+
+Функція захисту від фотографій, відео, стікерів 🔞
+✖️ Вимкнути /off
+✅ Увімкнути /on
+
+☀️ Бажаємо успіху та приємного спілкування 🤗
+""",
+        reply_markup=markup
+    )
 
 
 async def init_bot():
