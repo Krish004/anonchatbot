@@ -8,6 +8,7 @@ def create_table_if_not_exists() -> None:
         command = ('CREATE TABLE IF NOT EXISTS users('
                    'chat_id INTEGER PRIMARY KEY, '
                    'sex VARCHAR(25), '
+                   'age INTEGER, '
                    'username TEXT, '
                    'connected_with INTEGER, '
                    'message_count INTEGER, '
@@ -15,17 +16,17 @@ def create_table_if_not_exists() -> None:
                    ')')
 
         cursor.execute(command)
+        connection.commit()
 
 
-def create_user(username: str,
-                chat_id: int,
-                sex: str) -> None:
+def create_user(user) -> None:
     """ Saves user to DB """
     with connection:
         command = ("INSERT INTO users "
                    "(username, chat_id, sex) "
                    "VALUES (?, ?, ?)")
-        cursor.execute(command, (username, chat_id, sex))
+        cursor.execute(command, (user.username, user.chat_id, user.sex))
+        connection.commit()
 
 
 def user_exists(chat_id: int) -> bool:
@@ -57,12 +58,14 @@ def update_user_sex(sex: str,
     """ Change user gender by chat_id """
     command = "UPDATE users SET sex=? WHERE chat_id=?"
     cursor.execute(command, (sex, chat_id,))
+    connection.commit()
 
 
 def increment_message_count(chat_id: int) -> None:
     """ Increment user's message count by chat id """
     command = "UPDATE users SET message_count = message_count + 1 WHERE chat_id = chat_id"
     cursor.execute(command, (chat_id,))
+    connection.commit()
 
 
 def get_top_users() -> list[User]:

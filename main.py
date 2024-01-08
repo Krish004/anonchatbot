@@ -1,5 +1,7 @@
+import asyncio
+
 from service import user_service, dialog_service, queue_service
-from service.user_service import get_top_users
+from service.bot_service import init_bot
 
 
 def prepare_db():
@@ -10,3 +12,4 @@ def prepare_db():
 
 if __name__ == '__main__':
     prepare_db()
+    asyncio.run(init_bot())
