@@ -38,11 +38,10 @@ async def start(message: Message,
                           0,
                           0)
         user_service.create_user(user)
-        await fill_profile(message, state)
+        await fill_profile(message)
 
 
-async def fill_profile(message: Message,
-                       state: FSMContext):
+async def fill_profile(message: Message):
     """
     Starts the chain of filling the profile
     1) Ask the gender
@@ -70,7 +69,34 @@ async def process_gender_callback(callback_query: CallbackQuery,
     await callback_query.answer()
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
+
+    await ask_age(callback_query.message, state)
+
+
+@dp.message(ProfileStates.ask_age)
+async def process_ask_age(message: Message,
+                          state: FSMContext):
+    age = message.text
+    try:
+        age = int(age)
+    except ValueError:
+        return await message.answer("Будь ласка введіть Ваш реальний вік")
+
+    user_service.update_user_age(age=age,
+                                 chat_id=message.chat.id)
+    await ask_name(message, state)
+
+
+async def ask_age(message: Message,
+                  state: FSMContext):
+    await message.answer("А тепер введи свій вік")
     await state.set_state(ProfileStates.ask_age)
+
+
+async def ask_name(message: Message,
+                   state: FSMContext):
+    await message.answer("Як мені тебе називати?")
+    pass
 
 
 async def init_bot():

@@ -61,6 +61,14 @@ def update_user_sex(sex: str,
     connection.commit()
 
 
+def update_user_age(age: int,
+                    chat_id: int) -> None:
+    """ Updates user's age by chat_id """
+    command = "UPDATE users SET age=? WHERE chat_id=?"
+    cursor.execute(command, (age, chat_id,))
+    connection.commit()
+
+
 def increment_message_count(chat_id: int) -> None:
     """ Increment user's message count by chat id """
     command = "UPDATE users SET message_count = message_count + 1 WHERE chat_id = chat_id"
