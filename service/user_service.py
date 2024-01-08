@@ -9,6 +9,7 @@ def create_table_if_not_exists() -> None:
                    'chat_id INTEGER PRIMARY KEY, '
                    'sex VARCHAR(25), '
                    'age INTEGER, '
+                   'name TEXT, '
                    'username TEXT, '
                    'connected_with INTEGER, '
                    'message_count INTEGER, '
@@ -23,9 +24,9 @@ def create_user(user) -> None:
     """ Saves user to DB """
     with connection:
         command = ("INSERT INTO users "
-                   "(username, chat_id, sex) "
-                   "VALUES (?, ?, ?)")
-        cursor.execute(command, (user.username, user.chat_id, user.sex))
+                   "(username, chat_id) "
+                   "VALUES (?, ?)")
+        cursor.execute(command, (user.username, user.chat_id,))
         connection.commit()
 
 
@@ -66,6 +67,14 @@ def update_user_age(age: int,
     """ Updates user's age by chat_id """
     command = "UPDATE users SET age=? WHERE chat_id=?"
     cursor.execute(command, (age, chat_id,))
+    connection.commit()
+
+
+def update_user_name(name: str,
+                     chat_id: int) -> None:
+    """ Updates user's name by chat_id """
+    command = "UPDATE users SET name=? WHERE chat_id=?"
+    cursor.execute(command, (name, chat_id,))
     connection.commit()
 
 

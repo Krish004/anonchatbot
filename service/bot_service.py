@@ -34,27 +34,30 @@ async def start(message: Message,
         user: User = User(message.chat.id,
                           'FEMALE',
                           15,
+                          '',
                           message.from_user.username,
                           0,
                           0)
         user_service.create_user(user)
+        await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.")
         await fill_profile(message)
+    else:
+        await send_user_profile(message)
 
 
 async def fill_profile(message: Message):
     """
     Starts the chain of filling the profile
-    1) Ask the gender
-    2) Ask the age
-    3) Ask the name
+    1) Asks the gender
+    2) Asks the age
+    3) Asks the name
     """
     man_button = InlineKeyboardButton(text="Я хлопець👨", callback_data="MALE")
     woman_button = InlineKeyboardButton(text="Я дівчинка👩", callback_data="FEMALE")
     keyboard_markup = InlineKeyboardMarkup(row_width=2, inline_keyboard=[list([man_button, woman_button])])
 
     await message.answer(
-        text="""Привіт, вітаю тебе в боті анонімного спілкування.
-Спершу, напиши свою стать""",
+        text="Вибери свою стать",
         reply_markup=keyboard_markup)
 
 
@@ -73,12 +76,20 @@ async def process_gender_callback(callback_query: CallbackQuery,
     await ask_age(callback_query.message, state)
 
 
+async def ask_age(message: Message,
+                  state: FSMContext):
+    await message.answer("Введи свій вік")
+    await state.set_state(ProfileStates.ask_age)
+
+
 @dp.message(ProfileStates.ask_age)
 async def process_ask_age(message: Message,
                           state: FSMContext):
     age = message.text
     try:
         age = int(age)
+        if age < 0 or age > 100:
+            raise ValueError("Вибраний вік поза межами")
     except ValueError:
         return await message.answer("Будь ласка введіть Ваш реальний вік")
 
@@ -87,16 +98,36 @@ async def process_ask_age(message: Message,
     await ask_name(message, state)
 
 
-async def ask_age(message: Message,
-                  state: FSMContext):
-    await message.answer("А тепер введи свій вік")
-    await state.set_state(ProfileStates.ask_age)
-
-
 async def ask_name(message: Message,
                    state: FSMContext):
     await message.answer("Як мені тебе називати?")
-    pass
+    await state.set_state(ProfileStates.ask_name)
+
+
+@dp.message(ProfileStates.ask_name)
+async def process_ask_name(message: Message,
+                           state: FSMContext):
+    name: str = message.text
+    user_service.update_user_name(name, message.chat.id)
+    await state.clear()
+    await send_user_profile(message)
+
+
+async def send_user_profile(message: Message):
+    user: User = user_service.get_user_by_chat_id(message.chat.id)
+
+    fill_profile_button = InlineKeyboardButton(text="Заповинти профіль наново", callback_data="profile")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button]])
+
+    await message.answer(text=user.get_profile(),
+                         reply_markup=markup)
+
+
+@dp.callback_query(lambda c: c.data == 'profile')
+async def send_profile(callback_query: CallbackQuery):
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+    await fill_profile(callback_query.message)
 
 
 async def init_bot():
