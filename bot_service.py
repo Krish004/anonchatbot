@@ -52,7 +52,7 @@ async def send_user_profile(message: Message):
     """
     user: User = user_service.get_user_by_chat_id(message.chat.id)
 
-    fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="profile")
+    fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="change-profile")
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search")
     rules_button = InlineKeyboardButton(text="📕 Правила", callback_data="rules")
     markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button], [rules_button]])
@@ -167,12 +167,13 @@ async def send_rules(callback_query: CallbackQuery):
 6. Будь-які дії, які порушують правила Telegram.
 7. Образлива поведінка.
 
-Функція захисту від фотографій, відео, стікерів 🔞
-✖️ Вимкнути /off
-✅ Увімкнути /on
-
 ☀️ Бажаємо успіху та приємного спілкування 🤗
 """,
+
+        # Функція захисту від фотографій, відео, стікерів 🔞
+        # ✖️ Вимкнути /off
+        # ✅ Увімкнути /on
+
         reply_markup=markup
     )
 
