@@ -1,8 +1,10 @@
-from config.db_config import connection
+from config.db_config import connection, cursor
+from entity.user import User
 
 
-def create_table_if_not_exists():
-    with connection as conn:
+def create_table_if_not_exists() -> None:
+    """ Creates user table if not exists """
+    with connection:
         command = ('CREATE TABLE IF NOT EXISTS users('
                    'chat_id INTEGER PRIMARY KEY, '
                    'sex VARCHAR(25), '
@@ -12,4 +14,63 @@ def create_table_if_not_exists():
                    'FOREIGN KEY (connected_with) REFERENCES users(chat_id)'
                    ')')
 
-        conn.execute(command)
+        cursor.execute(command)
+
+
+def create_user(username: str,
+                chat_id: int,
+                sex: str) -> None:
+    """ Saves user to DB """
+    with connection:
+        command = ("INSERT INTO users "
+                   "(username, chat_id, sex) "
+                   "VALUES (?, ?, ?)")
+        cursor.execute(command, (username, chat_id, sex))
+
+
+def user_exists(chat_id: int) -> bool:
+    """ Returns true if user with the chat_id exists """
+    with connection:
+        command = 'SELECT * FROM users WHERE chat_id = ?'
+        result = cursor.execute(command, (chat_id,)).fetchall()
+        return bool(len(result))
+
+
+def get_user_by_chat_id(chat_id: int) -> User | None:
+    """ Returns user from DB """
+    with connection:
+        command = 'SELECT * FROM users WHERE chat_id = ?'
+        result = cursor.execute(command, (chat_id,)).fetchone()
+        return User.from_dict(dict(result))
+
+
+def get_user_count() -> int:
+    """ Return count of users in database """
+    with connection:
+        command = "SELECT COUNT(*) FROM users"
+        result = cursor.execute(command).fetchone()
+        return tuple(result)[0]
+
+
+def update_user_sex(sex: str,
+                    chat_id: int) -> None:
+    """ Change user gender by chat_id """
+    command = "UPDATE users SET sex=? WHERE chat_id=?"
+    cursor.execute(command, (sex, chat_id,))
+
+
+def increment_message_count(chat_id: int) -> None:
+    """ Increment user's message count by chat id """
+    command = "UPDATE users SET message_count = message_count + 1 WHERE chat_id = chat_id"
+    cursor.execute(command, (chat_id,))
+
+
+def get_top_users() -> list[User]:
+    """ Return top 5 users by message count """
+    command = "SELECT * FROM users ORDER BY message_count DESC LIMIT 5"
+    result = cursor.execute(command).fetchall()
+
+    users: [User] = []
+    for user_dict in result:
+        users.append(User.from_dict(dict(user_dict)))
+    return users

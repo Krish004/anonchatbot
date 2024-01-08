@@ -1,4 +1,5 @@
 from service import user_service, dialog_service, queue_service
+from service.user_service import get_top_users
 
 
 def prepare_db():
