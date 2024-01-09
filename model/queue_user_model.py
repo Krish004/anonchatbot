@@ -1,11 +1,15 @@
-class QueueUser:
-    def __init__(self,
-                 chat_id: int,
-                 sex: str,
-                 sex_to_search: str):
-        self.chat_id = chat_id
-        self.sex = sex
-        self.sex_to_search = sex_to_search
+from peewee import IntegerField, TextField
+
+from model.base_model import BaseModel
+
+
+class QueueUserModel(BaseModel):
+    chat_id = IntegerField(primary_key=True)
+    sex = TextField()
+    sex_to_search = TextField()
+
+    class Meta:
+        table_name = "queue"
 
     @classmethod
     def from_dict(cls, user_dict):

@@ -1,9 +1,17 @@
 import configparser
-import sqlite3
+from peewee import *
 
 config = configparser.ConfigParser()
 config.read('db.ini')
 
-connection = sqlite3.connect(config["database"]["name"])
-connection.row_factory = sqlite3.Row
-cursor = connection.cursor()
+DB_USERNAME = config['database']['username']
+DB_PASSWORD = config['database']['password']
+DB_HOST = config['database']['host']
+DB_NAME = config['database']['name']
+
+db = MySQLDatabase(
+    host=config["database"]["host"],
+    database=config["database"]["name"],
+    user=config["database"]["username"],
+    password=config["database"]["password"]
+)

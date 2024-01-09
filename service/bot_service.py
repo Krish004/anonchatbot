@@ -8,7 +8,7 @@ from aiogram.fsm.state import State
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
-from entity.user import User
+from model.user_model import UserModel
 from repo import user_repo, queue_repo
 from states.chat_states import ChatStates
 from states.profile_states import ProfileStates
@@ -33,14 +33,8 @@ async def start(message: Message,
 
     chat_id: int = message.chat.id
     if not user_repo.user_exists(chat_id):
-        user: User = User(message.chat.id,
-                          'FEMALE',
-                          15,
-                          '',
-                          message.from_user.username,
-                          0,
-                          0)
-        user_repo.create_user(user)
+        user_repo.create_user(chat_id=chat_id,
+                              username=message.from_user.username)
         await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.")
         await fill_profile(message)
     else:
@@ -52,7 +46,7 @@ async def send_user_profile(message: Message):
     Like a main menu of bot
     From here you can see or change your profile, start chatting
     """
-    user: User = user_repo.get_user_by_chat_id(message.chat.id)
+    user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
 
     fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="change-profile")
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
@@ -202,7 +196,7 @@ async def process_start_searching(callback_query: CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith('SEARCH_'))
 async def process_search(callback_query: CallbackQuery,
                          state: FSMContext):
-    user: User = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
     sex_to_search: str = callback_query.data.split('_')[1]
     queue_repo.add_user_to_queue(chat_id=user.chat_id,
                                  sex=user.sex,
