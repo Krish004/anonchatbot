@@ -13,9 +13,11 @@ def user_exists(chat_id: int) -> bool:
     return len(query.execute()) > 0
 
 
-def create_user(chat_id: int,
+def create_user(user_id: int,
+                chat_id: int,
                 username: str) -> None:
     user_model: UserModel = UserModel.create(
+        user_id=user_id,
         chat_id=chat_id,
         sex='MALE',
         age=18,
@@ -35,7 +37,8 @@ def update_user_sex(sex: str,
     UserModel.update(sex=sex).where(UserModel.chat_id == chat_id).execute()
 
 
-def update_user_age(age, chat_id) -> None:
+def update_user_age(age: int,
+                    chat_id: int) -> None:
     UserModel.update(age=age).where(UserModel.chat_id == chat_id).execute()
 
 
@@ -44,5 +47,6 @@ def update_user_name(name: str,
     UserModel.update(name=name).where(UserModel.chat_id == chat_id).execute()
 
 
-def update_user_connected_with(chat_id, connected_with) -> None:
+def update_user_connected_with(chat_id: int,
+                               connected_with: int) -> None:
     UserModel.update(connected_with=connected_with).where(UserModel.chat_id == chat_id).execute()

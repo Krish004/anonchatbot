@@ -34,6 +34,7 @@ async def start(message: Message,
     chat_id: int = message.chat.id
     if not user_repo.user_exists(chat_id):
         user_repo.create_user(chat_id=chat_id,
+                              user_id=message.from_user.id,
                               username=message.from_user.username)
         await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.")
         await fill_profile(message)
@@ -178,10 +179,10 @@ async def process_start_searching(callback_query: CallbackQuery):
     woman_button = InlineKeyboardButton(text="👩 Дівчина", callback_data='SEARCH_FEMALE')
     random_button = InlineKeyboardButton(text="👫 Випадковий діалог", callback_data='SEARCH_RANDOM')
     markup = InlineKeyboardMarkup(inline_keyboard=[[man_button, woman_button], [random_button]])
-    await bot.delete_message(chat_id=callback_query.message.chat.id,
-                             message_id=callback_query.message.message_id)
     await callback_query.message.answer(text=message,
                                         reply_markup=markup)
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
 
 
 @dp.callback_query(lambda c: c.data.startswith('SEARCH_'))
@@ -190,6 +191,7 @@ async def process_search(callback_query: CallbackQuery,
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
     sex_to_search: str = callback_query.data.split('_')[1]
     queue_repo.add_user_to_queue(chat_id=user.chat_id,
+                                 user_id=user.user_id,
                                  sex=user.sex,
                                  sex_to_search=sex_to_search)
     await callback_query.message.answer("🔍 Почекайте, шукаю...")
@@ -209,5 +211,48 @@ async def update_user_state(chat_id: int,
     await state.set_state(custom_state)
 
 
+async def set_state(chat_id: int,
+                    user_id: int,
+                    custom_state: State):
+    state = dp.fsm.resolve_context(
+        bot=bot, chat_id=chat_id, user_id=user_id
+    )
+    await state.set_state(custom_state)
+
+
+@dp.message(ChatStates.chatting)
+async def process_chatting(message: Message,
+                           state: FSMContext):
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    await bot.send_message(chat_id=user.connected_with,
+                           text=message.text)
+
+
 async def init_bot():
     await dp.start_polling(bot)
+
+
+@dp.message()
+async def process_unexpected(message: Message,
+                             state: FSMContext):
+    user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
+    if user.connected_with != 0:
+        """
+        Sometimes connection may be lost. 
+        So if in db we connected, lets enable it again 
+        """
+        await state.set_state(ChatStates.chatting)
+        await bot.send_message(chat_id=user.connected_with,
+                               text=message.text)
+
+
+async def send_message_connected_with(chat_id: int):
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=chat_id)
+    connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
+    await bot.send_message(text=
+                           f"""
+🥰 Знайшли для тебе когось! 
+{'👨 Хлопець' if connected_user.sex == 'MALE' else '👩 Дівчина'} - {connected_user.age}
+Приємного спілкування
+        """,
+                           chat_id=user.chat_id)

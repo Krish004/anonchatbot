@@ -4,7 +4,8 @@ from model.base_model import BaseModel
 
 
 class QueueUserModel(BaseModel):
-    chat_id = BigIntegerField(primary_key=True)
+    user_id = BigIntegerField(primary_key=True)
+    chat_id = BigIntegerField()
     sex = TextField()
     sex_to_search = TextField()
 
@@ -19,4 +20,5 @@ class QueueUserModel(BaseModel):
         return cls(**user_dict)
 
     def __str__(self):
-        return f"chat_id - {self.chat_id}, sex - {self.sex}, sex_to_search - {self.sex_to_search}"
+        return (f"user_id - {self.user_id}, chat_id - {self.chat_id},"
+                f" sex - {self.sex}, sex_to_search - {self.sex_to_search}")

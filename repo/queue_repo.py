@@ -7,10 +7,12 @@ def create_table_if_not_exists() -> None:
 
 
 def add_user_to_queue(chat_id: int,
+                      user_id: int,
                       sex: str,
                       sex_to_search: str) -> None:
     queue_user_model: QueueUserModel = QueueUserModel.create(
         chat_id=chat_id,
+        user_id=user_id,
         sex=sex,
         sex_to_search=sex_to_search
     )

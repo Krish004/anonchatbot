@@ -1,11 +1,13 @@
-import time
+import asyncio
 
 from config.queue_config import *
 from model.queue_user_model import QueueUserModel
 from repo import queue_repo, user_repo
+from service import bot_service
+from states.chat_states import ChatStates
 
 
-def start_queue_worker():
+async def start_queue_worker():
     """
     Current method infinity checks for new connections for chatting
     It iterates through queue and match dialogs
@@ -35,8 +37,18 @@ def start_queue_worker():
                     queue_repo.remove_user_from_queue(chat_id=user_queue_j.chat_id)
                     found = True
 
+                    await bot_service.set_state(chat_id=user_queue_i.chat_id,
+                                                user_id=user_queue_i.user_id,
+                                                custom_state=ChatStates.chatting)
+
+                    await bot_service.set_state(chat_id=user_queue_j.chat_id,
+                                                user_id=user_queue_j.user_id,
+                                                custom_state=ChatStates.chatting)
+
+                    await bot_service.send_message_connected_with(chat_id=user_queue_i.chat_id)
+                    await bot_service.send_message_connected_with(chat_id=user_queue_j.chat_id)
                     break
             if found:
                 break
 
-        time.sleep(TIME_TO_SLEEP_FOR_QUEUE_SECONDS)
+        await asyncio.sleep(TIME_TO_SLEEP_FOR_QUEUE_SECONDS)

@@ -4,7 +4,8 @@ from model.base_model import BaseModel
 
 
 class UserModel(BaseModel):
-    chat_id = BigIntegerField(primary_key=True)
+    user_id = BigIntegerField(primary_key=True)
+    chat_id = BigIntegerField()
     sex = TextField()
     age = IntegerField()
     name = TextField()
@@ -16,7 +17,7 @@ class UserModel(BaseModel):
         table_name = "users"
 
     def __str__(self):
-        return (f"chat_id: {self.chat_id}, sex: {self.sex}, age: {self.age}, name: {self.name}, "
+        return (f"user_id:{self.user_id}, chat_id: {self.chat_id}, sex: {self.sex}, age: {self.age}, name: {self.name}, "
                 f"username: {self.username}, connected_with: {self.connected_with}, "
                 f"message_count: {self.message_count}")
 
@@ -29,7 +30,7 @@ class UserModel(BaseModel):
 
     def get_profile(self) -> str:
         return f"""
-#️⃣Твій id - {self.chat_id}
+#️⃣Твій id - {self.user_id}
 👀Ім'я - {self.name}
 👥Стать - {'👨 Хлопець' if self.sex == 'MALE' else '👩 Дівчинка'}
 🔞Вік - {self.age}
