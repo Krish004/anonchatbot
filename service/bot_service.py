@@ -82,15 +82,10 @@ async def process_gender_callback(callback_query: CallbackQuery,
 
     user_repo.update_user_sex(sex, chat_id)
     await callback_query.answer()
+    await callback_query.message.answer("Введи свій вік")
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
 
-    await ask_age(callback_query.message, state)
-
-
-async def ask_age(message: Message,
-                  state: FSMContext):
-    await message.answer("Введи свій вік")
     await state.set_state(ProfileStates.ask_age)
 
 
@@ -107,11 +102,7 @@ async def process_ask_age(message: Message,
 
     user_repo.update_user_age(age=age,
                               chat_id=message.chat.id)
-    await ask_name(message, state)
 
-
-async def ask_name(message: Message,
-                   state: FSMContext):
     await message.answer("Як мені тебе називати?")
     await state.set_state(ProfileStates.ask_name)
 
