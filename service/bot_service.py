@@ -1,7 +1,10 @@
 import configparser
 import logging
+import os
 from datetime import datetime
 
+from aiogram import F
+from aiogram.types import Message, InputMediaPhoto, InputMedia, ContentType as CT, FSInputFile
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -268,8 +271,30 @@ async def process_stop_chatting(message: Message,
                       user_id=connected_user.user_id)
 
 
+@dp.message(F.content_type.in_([CT.PHOTO]), ChatStates.chatting)
+async def process_photo_chatting(message: Message):
+    """ Handling photo during chatting """
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    try:
+        directory_name = f'./images/{message.chat.id}'
+        file_name: str = f'{directory_name}/{message.photo[1].file_id}.jpg'
+        if not os.path.exists(directory_name):
+            os.makedirs(directory_name)
+        file = await bot.get_file(message.photo[-1].file_id)
+        file_path = file.file_path
+        await bot.download_file(file_path, file_name)
+        photo_fs = FSInputFile(file_name)
+        await bot.send_photo(chat_id=user.connected_with,
+                             photo=photo_fs,
+                             caption=message.text)
+    except():
+        pass
+
+
 @dp.message(ChatStates.chatting)
 async def process_chatting(message: Message):
+    """ There is chatting here """
+
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
     await bot.send_message(chat_id=user.connected_with,
                            text=message.text)
@@ -291,6 +316,14 @@ async def process_unexpected(message: Message,
         await state.set_state(ChatStates.chatting)
         await bot.send_message(chat_id=user.connected_with,
                                text=message.text)
+        return
+
+    """ Default message """
+    await bot.send_message(chat_id=user.chat_id,
+                           text="""
+Я тебе не зовсім розумію
+Тикай /start, якщо щось пішло не так
+""")
 
 
 async def send_message_connected_with(chat_id: int):
