@@ -9,7 +9,7 @@ class UserModel(BaseModel):
     age = IntegerField()
     name = TextField()
     username = TextField()
-    connected_with = IntegerField()
+    connected_with = BigIntegerField()
     message_count = IntegerField()
 
     class Meta:

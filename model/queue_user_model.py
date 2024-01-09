@@ -1,10 +1,10 @@
-from peewee import IntegerField, TextField
+from peewee import IntegerField, TextField, BigIntegerField
 
 from model.base_model import BaseModel
 
 
 class QueueUserModel(BaseModel):
-    chat_id = IntegerField(primary_key=True)
+    chat_id = BigIntegerField(primary_key=True)
     sex = TextField()
     sex_to_search = TextField()
 

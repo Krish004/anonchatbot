@@ -23,8 +23,8 @@ def delete_all() -> None:
 
 
 def get_all_users() -> [QueueUserModel]:
-    return QueueUserModel.select()
+    return list(QueueUserModel.select().execute())
 
 
 def remove_user_from_queue(chat_id: int) -> None:
-    QueueUserModel.delete().where(chat_id=chat_id)
+    QueueUserModel.delete().where(QueueUserModel.chat_id == chat_id).execute()
