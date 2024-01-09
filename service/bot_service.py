@@ -1,5 +1,6 @@
 import configparser
 import logging
+from datetime import datetime
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
@@ -9,7 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 from model.user_model import UserModel
-from repo import user_repo, queue_repo
+from repo import user_repo, queue_repo, message_repo
 from states.chat_states import ChatStates
 from states.profile_states import ProfileStates
 
@@ -39,23 +40,24 @@ async def start(message: Message,
         await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.")
         await fill_profile(message)
     else:
-        await send_user_profile(message)
+        await send_user_profile(chat_id=message.chat.id)
 
 
-async def send_user_profile(message: Message):
+async def send_user_profile(chat_id: int):
     """
     Like a main menu of bot
     From here you can see or change your profile, start chatting
     """
-    user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id)
 
     fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="change-profile")
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
     rules_button = InlineKeyboardButton(text="📕 Правила", callback_data="rules")
     markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button], [rules_button]])
 
-    await message.answer(text=user.get_profile(),
-                         reply_markup=markup)
+    await bot.send_message(chat_id=chat_id,
+                           text=user.get_profile(),
+                           reply_markup=markup)
 
 
 async def fill_profile(message: Message):
@@ -114,7 +116,7 @@ async def process_ask_name(message: Message,
     name: str = message.text
     user_repo.update_user_name(name, message.chat.id)
     await state.clear()
-    await send_user_profile(message)
+    await send_user_profile(chat_id=message.chat.id)
 
 
 @dp.callback_query(lambda c: c.data == 'change-profile')
@@ -130,7 +132,7 @@ async def process_send_profile(callback_query: CallbackQuery):
     """ On pressing my profile button """
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
-    await send_user_profile(callback_query.message)
+    await send_user_profile(chat_id=callback_query.message.chat.id)
 
 
 @dp.callback_query(lambda c: c.data == 'rules')
@@ -218,7 +220,7 @@ async def process_cancel_search(callback_query: CallbackQuery,
     await callback_query.answer(text="❌ Пошук відмінено")
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
-    await send_user_profile(message=callback_query.message)
+    await send_user_profile(chat_id=callback_query.message.chat.id)
 
 
 async def set_state(chat_id: int,
@@ -232,11 +234,49 @@ async def set_state(chat_id: int,
     await state.set_state(custom_state)
 
 
+async def clear_state(chat_id: int,
+                      user_id: int):
+    state = dp.fsm.resolve_context(
+        bot=bot,
+        chat_id=chat_id,
+        user_id=user_id
+    )
+    await state.clear()
+
+
+@dp.message(Command('stop'))
+async def process_stop_chatting(message: Message,
+                                state: FSMContext):
+    """ Stop messaging """
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    user_repo.update_user_connected_with(chat_id=user.chat_id,
+                                         connected_with=0)
+    user_repo.update_user_connected_with(chat_id=user.connected_with,
+                                         connected_with=0)
+
+    connected_user = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
+
+    # Process user
+    await send_user_profile(chat_id=message.chat.id)
+    await state.clear()
+
+    # Process remote user
+    await bot.send_message(chat_id=connected_user.chat_id,
+                           text="😔 Діалог припинено")
+    await send_user_profile(chat_id=connected_user.chat_id)
+    await clear_state(chat_id=user.connected_with,
+                      user_id=connected_user.user_id)
+
+
 @dp.message(ChatStates.chatting)
 async def process_chatting(message: Message):
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
     await bot.send_message(chat_id=user.connected_with,
                            text=message.text)
+    message_repo.save_message(chat_id_from=user.chat_id,
+                              chat_id_to=user.connected_with,
+                              message=message.text,
+                              date=datetime.now())
 
 
 @dp.message()

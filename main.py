@@ -1,6 +1,7 @@
 import asyncio
 
 from config import db_config
+from model.message_model import MessageModel
 from model.queue_user_model import QueueUserModel
 from model.user_model import UserModel
 from repo import queue_repo, user_repo
@@ -10,7 +11,7 @@ from service.queue_service import start_queue_worker
 
 def prepare_db():
     with db_config.db as db:
-        db.create_tables([UserModel, QueueUserModel])
+        db.create_tables([UserModel, QueueUserModel, MessageModel])
 
 
 def delete_old_queue():
