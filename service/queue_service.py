@@ -14,9 +14,9 @@ async def start_queue_worker():
     """
     while True:
         queue_user_list: [QueueUserModel] = queue_repo.get_all_users()
+        found = False
         for i in range(0, len(queue_user_list)):
             user_queue_i: QueueUserModel = queue_user_list[i]
-            found = False
             for j in range(i + 1, len(queue_user_list)):
                 user_queue_j: QueueUserModel = queue_user_list[j]
                 if ((user_queue_i.chat_id != user_queue_j.chat_id)
@@ -50,5 +50,5 @@ async def start_queue_worker():
                     break
             if found:
                 break
-
-        await asyncio.sleep(TIME_TO_SLEEP_FOR_QUEUE_SECONDS)
+        if not found:
+            await asyncio.sleep(TIME_TO_SLEEP_FOR_QUEUE_SECONDS)

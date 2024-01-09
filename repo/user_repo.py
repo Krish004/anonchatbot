@@ -50,3 +50,7 @@ def update_user_name(name: str,
 def update_user_connected_with(chat_id: int,
                                connected_with: int) -> None:
     UserModel.update(connected_with=connected_with).where(UserModel.chat_id == chat_id).execute()
+
+
+def delete_connected_with_for_all() -> None:
+    UserModel.update(connected_with=0).execute()

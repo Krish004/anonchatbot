@@ -3,7 +3,7 @@ import asyncio
 from config import db_config
 from model.queue_user_model import QueueUserModel
 from model.user_model import UserModel
-from repo import queue_repo
+from repo import queue_repo, user_repo
 from service.bot_service import init_bot
 from service.queue_service import start_queue_worker
 
@@ -15,6 +15,7 @@ def prepare_db():
 
 def delete_old_queue():
     queue_repo.delete_all()
+    user_repo.delete_connected_with_for_all()
 
 
 async def main():
