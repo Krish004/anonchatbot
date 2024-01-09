@@ -8,7 +8,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 from entity.user import User
-from service import user_service
+from service import user_service, queue_service
+from states.chat_states import ChatStates
 from states.profile_states import ProfileStates
 
 config = configparser.ConfigParser()
@@ -53,7 +54,7 @@ async def send_user_profile(message: Message):
     user: User = user_service.get_user_by_chat_id(message.chat.id)
 
     fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="change-profile")
-    start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search")
+    start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
     rules_button = InlineKeyboardButton(text="📕 Правила", callback_data="rules")
     markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button], [rules_button]])
 
@@ -69,7 +70,7 @@ async def fill_profile(message: Message):
     3) Asks the name
     """
     man_button = InlineKeyboardButton(text="Я хлопець👨", callback_data="MALE")
-    woman_button = InlineKeyboardButton(text="Я дівчинка👩", callback_data="FEMALE")
+    woman_button = InlineKeyboardButton(text="Я дівчина👩", callback_data="FEMALE")
     keyboard_markup = InlineKeyboardMarkup(row_width=2, inline_keyboard=[list([man_button, woman_button])])
 
     await message.answer(
@@ -130,7 +131,7 @@ async def process_ask_name(message: Message,
 
 
 @dp.callback_query(lambda c: c.data == 'change-profile')
-async def send_profile(callback_query: CallbackQuery):
+async def process_change_profile(callback_query: CallbackQuery):
     """ On pressing change profile button """
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
@@ -138,7 +139,7 @@ async def send_profile(callback_query: CallbackQuery):
 
 
 @dp.callback_query(lambda c: c.data == 'profile')
-async def send_profile(callback_query: CallbackQuery):
+async def process_send_profile(callback_query: CallbackQuery):
     """ On pressing my profile button """
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
@@ -146,13 +147,13 @@ async def send_profile(callback_query: CallbackQuery):
 
 
 @dp.callback_query(lambda c: c.data == 'rules')
-async def send_rules(callback_query: CallbackQuery):
+async def process_send_rules(callback_query: CallbackQuery):
     """ On pressing rules button """
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
 
     fill_profile_button = InlineKeyboardButton(text="👤 Мій профіль", callback_data="profile")
-    start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search")
+    start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button]])
 
     await callback_query.message.answer(
@@ -176,6 +177,39 @@ async def send_rules(callback_query: CallbackQuery):
 
         reply_markup=markup
     )
+
+
+@dp.callback_query(lambda c: c.data == 'search-menu')
+async def process_start_searching(callback_query: CallbackQuery):
+    """
+    Returns menu with search parameters
+    1) Search men
+    2) Search women
+    3) Random search
+    """
+    message = "❤️‍🔥 Виберіть стать співрозмовника"
+    man_button = InlineKeyboardButton(text="👨 Хлопець", callback_data='SEARCH_MALE')
+    woman_button = InlineKeyboardButton(text="👩 Дівчина", callback_data='SEARCH_FEMALE')
+    random_button = InlineKeyboardButton(text="👫 Випадковий діалог", callback_data='SEARCH_RANDOM')
+    markup = InlineKeyboardMarkup(inline_keyboard=[[man_button, woman_button], [random_button]])
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+    await callback_query.message.answer(text=message,
+                                        reply_markup=markup)
+
+
+@dp.callback_query(lambda c: c.data.startswith('SEARCH_'))
+async def process_search(callback_query: CallbackQuery,
+                         state: FSMContext):
+    user: User = user_service.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+    sex_to_search: str = callback_query.data.split('_')[1]
+    queue_service.add_user_to_queue(chat_id=user.chat_id,
+                                    sex=user.sex,
+                                    sex_to_search=sex_to_search)
+    await callback_query.message.answer("🔍 Почекайте, шукаю...")
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+    await state.set_state(ChatStates.search)
 
 
 async def init_bot():
