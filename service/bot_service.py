@@ -188,48 +188,55 @@ async def process_start_searching(callback_query: CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith('SEARCH_'))
 async def process_search(callback_query: CallbackQuery,
                          state: FSMContext):
+    """
+    To process searching just create new user_queue and save it to db
+    Queue Service will have done all work to match dialogs
+    """
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
     sex_to_search: str = callback_query.data.split('_')[1]
     queue_repo.add_user_to_queue(chat_id=user.chat_id,
                                  user_id=user.user_id,
                                  sex=user.sex,
                                  sex_to_search=sex_to_search)
-    await callback_query.message.answer("🔍 Почекайте, шукаю...")
+
+    cancel_button = InlineKeyboardButton(text="Відмінити пошук",
+                                         callback_data="cancel-search")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[cancel_button]])
+
+    await callback_query.message.answer(text="🔍 Почекайте, шукаю...",
+                                        reply_markup=markup)
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
     await state.set_state(ChatStates.search)
 
 
-async def update_user_state(chat_id: int,
-                            custom_state: State):
-    """ Updates state of chat """
-    state: FSMContext = dp.fsm.resolve_context(
-        bot=bot,
-        chat_id=chat_id
-    )
-
-    await state.set_state(custom_state)
+@dp.callback_query(lambda c: c.data == 'cancel-search')
+async def process_cancel_search(callback_query: CallbackQuery,
+                                state: FSMContext):
+    queue_repo.remove_user_from_queue(chat_id=callback_query.message.chat.id)
+    await state.clear()
+    await callback_query.answer(text="❌ Пошук відмінено")
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+    await send_user_profile(message=callback_query.message)
 
 
 async def set_state(chat_id: int,
                     user_id: int,
                     custom_state: State):
     state = dp.fsm.resolve_context(
-        bot=bot, chat_id=chat_id, user_id=user_id
+        bot=bot,
+        chat_id=chat_id,
+        user_id=user_id
     )
     await state.set_state(custom_state)
 
 
 @dp.message(ChatStates.chatting)
-async def process_chatting(message: Message,
-                           state: FSMContext):
+async def process_chatting(message: Message):
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
     await bot.send_message(chat_id=user.connected_with,
                            text=message.text)
-
-
-async def init_bot():
-    await dp.start_polling(bot)
 
 
 @dp.message()
@@ -252,7 +259,13 @@ async def send_message_connected_with(chat_id: int):
     await bot.send_message(text=
                            f"""
 🥰 Знайшли для тебе когось! 
-{'👨 Хлопець' if connected_user.sex == 'MALE' else '👩 Дівчина'} - {connected_user.age}
-Приємного спілкування
+{'👨' if connected_user.sex == 'MALE' else '👩'} - {connected_user.name} - {connected_user.age}
+Приємного спілкування!
+
+/stop - щоб закінчити діалог
         """,
                            chat_id=user.chat_id)
+
+
+async def init_bot():
+    await dp.start_polling(bot)
