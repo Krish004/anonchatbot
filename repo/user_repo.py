@@ -78,6 +78,15 @@ def update_user_name(name: str,
     connection.commit()
 
 
+def update_user_connected_with(chat_id: int,
+                               connected_with: int) -> None:
+    """ Updates connected_with by chat_id """
+    with connection:
+        command = "UPDATE users SET connected_with=? WHERE chat_id=?"
+        cursor.execute(command, (connected_with, chat_id,))
+        connection.commit()
+
+
 def increment_message_count(chat_id: int) -> None:
     """ Increment user's message count by chat id """
     command = "UPDATE users SET message_count = message_count + 1 WHERE chat_id = chat_id"

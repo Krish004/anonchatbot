@@ -4,11 +4,12 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 from entity.user import User
-from service import user_service, queue_service
+from repo import user_repo, queue_repo
 from states.chat_states import ChatStates
 from states.profile_states import ProfileStates
 
@@ -31,7 +32,7 @@ async def start(message: Message,
     await state.clear()
 
     chat_id: int = message.chat.id
-    if not user_service.user_exists(chat_id):
+    if not user_repo.user_exists(chat_id):
         user: User = User(message.chat.id,
                           'FEMALE',
                           15,
@@ -39,7 +40,7 @@ async def start(message: Message,
                           message.from_user.username,
                           0,
                           0)
-        user_service.create_user(user)
+        user_repo.create_user(user)
         await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.")
         await fill_profile(message)
     else:
@@ -51,7 +52,7 @@ async def send_user_profile(message: Message):
     Like a main menu of bot
     From here you can see or change your profile, start chatting
     """
-    user: User = user_service.get_user_by_chat_id(message.chat.id)
+    user: User = user_repo.get_user_by_chat_id(message.chat.id)
 
     fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="change-profile")
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
@@ -85,7 +86,7 @@ async def process_gender_callback(callback_query: CallbackQuery,
     sex = callback_query.data
     chat_id = callback_query.message.chat.id
 
-    user_service.update_user_sex(sex, chat_id)
+    user_repo.update_user_sex(sex, chat_id)
     await callback_query.answer()
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
@@ -110,8 +111,8 @@ async def process_ask_age(message: Message,
     except ValueError:
         return await message.answer("Будь ласка введіть Ваш реальний вік")
 
-    user_service.update_user_age(age=age,
-                                 chat_id=message.chat.id)
+    user_repo.update_user_age(age=age,
+                              chat_id=message.chat.id)
     await ask_name(message, state)
 
 
@@ -125,7 +126,7 @@ async def ask_name(message: Message,
 async def process_ask_name(message: Message,
                            state: FSMContext):
     name: str = message.text
-    user_service.update_user_name(name, message.chat.id)
+    user_repo.update_user_name(name, message.chat.id)
     await state.clear()
     await send_user_profile(message)
 
@@ -201,15 +202,26 @@ async def process_start_searching(callback_query: CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith('SEARCH_'))
 async def process_search(callback_query: CallbackQuery,
                          state: FSMContext):
-    user: User = user_service.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+    user: User = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
     sex_to_search: str = callback_query.data.split('_')[1]
-    queue_service.add_user_to_queue(chat_id=user.chat_id,
-                                    sex=user.sex,
-                                    sex_to_search=sex_to_search)
+    queue_repo.add_user_to_queue(chat_id=user.chat_id,
+                                 sex=user.sex,
+                                 sex_to_search=sex_to_search)
     await callback_query.message.answer("🔍 Почекайте, шукаю...")
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
     await state.set_state(ChatStates.search)
+
+
+async def update_user_state(chat_id: int,
+                            custom_state: State):
+    """ Updates state of chat """
+    state: FSMContext = dp.fsm.resolve_context(
+        bot=bot,
+        chat_id=chat_id
+    )
+
+    await state.set_state(custom_state)
 
 
 async def init_bot():
