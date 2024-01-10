@@ -3,13 +3,12 @@ import logging
 import os
 from datetime import datetime
 
-from aiogram import F
-from aiogram.types import Message, InputMediaPhoto, InputMedia, ContentType as CT, FSInputFile
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import ContentType as CT
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 from model.user_model import UserModel
@@ -291,11 +290,70 @@ async def process_stop_chatting(message: Message,
     await clear_state(chat_id=user.connected_with,
                       user_id=connected_user.user_id)
 
+@dp.message(ChatStates.chatting)
+async def process_chatting(message: Message):
+    """ There is chatting here """
 
-@dp.message(F.content_type.in_([CT.PHOTO]), ChatStates.chatting)
-async def process_photo_chatting(message: Message):
-    """ Handling photo during chatting """
-    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    match message.content_type:
+        case CT.TEXT:
+            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+            await bot.send_message(chat_id=user.connected_with,
+                                   text=message.text)
+            message_repo.save_message(chat_id_from=user.chat_id,
+                                      chat_id_to=user.connected_with,
+                                      message=message.text,
+                                      date=datetime.now())
+        case CT.PHOTO:
+            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+            await process_photo(message=message,
+                                user=user)
+        case CT.STICKER:
+            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+            await bot.send_sticker(
+                chat_id=user.connected_with,
+                sticker=message.sticker.file_id
+            )
+
+
+@dp.message()
+async def process_unexpected(message: Message,
+                             state: FSMContext):
+    """
+    Sometimes connection may be lost.
+    So if in db we connected, lets enable it again
+    """
+    match message.content_type:
+        case CT.TEXT:
+            """ Handling text """
+            user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
+            if user.connected_with != 0:
+                await state.set_state(ChatStates.chatting)
+
+                await bot.send_message(chat_id=user.connected_with,
+                                       text=message.text)
+                return
+
+            """ Default message """
+            await bot.send_message(chat_id=user.chat_id,
+                                   text="""
+Я тебе не зовсім розумію
+Тикай /start, якщо щось пішло не так
+""")
+        case CT.PHOTO:
+            """ Handling photo """
+            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+            await process_photo(message=message,
+                                user=user)
+
+
+async def process_photo(message: Message,
+                        user: UserModel):
+    """
+    Current method process photo during the chatting
+    It Saves photo to db and if user connected with someone, sends photo
+    """
     try:
         directory_name = f'./images/{message.chat.id}'
         file_name: str = f'{directory_name}/{message.photo[1].file_id}.jpg'
@@ -304,47 +362,12 @@ async def process_photo_chatting(message: Message):
         file = await bot.get_file(message.photo[-1].file_id)
         file_path = file.file_path
         await bot.download_file(file_path, file_name)
-        photo_fs = FSInputFile(file_name)
-        await bot.send_photo(chat_id=user.connected_with,
-                             photo=photo_fs,
-                             caption=message.text)
+        if user.connected_with != 0:
+            await bot.send_photo(chat_id=user.connected_with,
+                                 photo=message.photo[-1].file_id,
+                                 caption=message.text)
     except():
         pass
-
-
-@dp.message(ChatStates.chatting)
-async def process_chatting(message: Message):
-    """ There is chatting here """
-
-    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
-    await bot.send_message(chat_id=user.connected_with,
-                           text=message.text)
-    message_repo.save_message(chat_id_from=user.chat_id,
-                              chat_id_to=user.connected_with,
-                              message=message.text,
-                              date=datetime.now())
-
-
-@dp.message()
-async def process_unexpected(message: Message,
-                             state: FSMContext):
-    user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
-    if user.connected_with != 0:
-        """
-        Sometimes connection may be lost. 
-        So if in db we connected, lets enable it again 
-        """
-        await state.set_state(ChatStates.chatting)
-        await bot.send_message(chat_id=user.connected_with,
-                               text=message.text)
-        return
-
-    """ Default message """
-    await bot.send_message(chat_id=user.chat_id,
-                           text="""
-Я тебе не зовсім розумію
-Тикай /start, якщо щось пішло не так
-""")
 
 
 async def send_message_connected_with(chat_id: int):
