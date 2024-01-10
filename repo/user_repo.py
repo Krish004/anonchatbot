@@ -29,7 +29,7 @@ def create_user(user_id: int,
 
 
 def get_user_by_chat_id(chat_id: int) -> UserModel | None:
-    return UserModel.select().where(UserModel.chat_id == chat_id).execute()
+    return UserModel.select().where(UserModel.chat_id == chat_id).get()
 
 
 def update_user_sex(sex: str,
