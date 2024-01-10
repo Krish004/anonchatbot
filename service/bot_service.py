@@ -14,7 +14,6 @@ from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, C
 from model.user_model import UserModel
 from repo import user_repo, queue_repo, message_repo
 from states.chat_states import ChatStates
-from states.person_state import PersonState
 from states.profile_states import ProfileStates
 
 config = configparser.ConfigParser()
@@ -47,38 +46,44 @@ async def start(message: Message,
                                      one_time_keyboard=True,
                                      keyboard=[[button]])
 
-        await message.answer(text="Привіт, вітаю тебе в боті анонімного спілкування.\n"
-                                  "Спочатку дозволь мені перевірити твої контакти, щоб упевнитись, що ти українець 🇺🇦",
-                             reply_markup=markup)
-        await state.set_state(PersonState.contact)
-    else:
-        user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
+        return await message.answer(text="Привіт, вітаю тебе в боті анонімного спілкування.\n"
+                                         "Спочатку дозволь мені перевірити твої контакти, щоб упевнитись, що ти українець 🇺🇦",
+                                    reply_markup=markup)
 
-        # if was in queue:
-        queue_repo.remove_user_from_queue(message.chat.id)
+    # If old user
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
 
-        # If was connected with:
-        if user.connected_with != 0:
-            # Disconnect
-            connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
-            user_repo.update_user_connected_with(chat_id=user.chat_id,
-                                                 connected_with=0)
-            user_repo.update_user_connected_with(chat_id=user.connected_with,
-                                                 connected_with=0)
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=message,
+                                         state=state)
 
-            # Process remote user
-            await bot.send_message(chat_id=connected_user.chat_id,
-                                   text="😔 Діалог припинено")
-            await send_user_profile(chat_id=connected_user.chat_id)
-            await clear_state(chat_id=user.connected_with,
-                              user_id=connected_user.user_id)
+    user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
 
-        # Send user profile
-        await state.clear()
-        await send_user_profile(chat_id=user.chat_id)
+    # if was in queue:
+    queue_repo.remove_user_from_queue(message.chat.id)
+
+    # If was connected with:
+    if user.connected_with != 0:
+        # Disconnect
+        connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
+        user_repo.update_user_connected_with(chat_id=user.chat_id,
+                                             connected_with=0)
+        user_repo.update_user_connected_with(chat_id=user.connected_with,
+                                             connected_with=0)
+
+        # Process remote user
+        await bot.send_message(chat_id=connected_user.chat_id,
+                               text="😔 Діалог припинено")
+        await send_user_profile(chat_id=connected_user.chat_id)
+        await clear_state(chat_id=user.connected_with,
+                          user_id=connected_user.user_id)
+
+    # Send user profile
+    await state.clear()
+    await send_user_profile(chat_id=user.chat_id)
 
 
-@dp.message(PersonState.contact, F.contact)
+@dp.message(F.contact)
 async def process_user_contact(message: Message,
                                state: FSMContext):
     number = message.contact.phone_number
@@ -178,7 +183,7 @@ async def process_ask_name(message: Message,
     if not user.is_enabled:
         return await send_is_not_enabled(message=message,
                                          state=state)
-    
+
     name: str = message.text
     user_repo.update_user_name(name, message.chat.id)
     await state.clear()
@@ -195,7 +200,7 @@ async def process_change_profile(callback_query: CallbackQuery,
     if not user.is_enabled:
         return await send_is_not_enabled(message=callback_query.message,
                                          state=state)
-    
+
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
     await fill_profile(callback_query.message)
@@ -211,7 +216,7 @@ async def process_send_profile(callback_query: CallbackQuery,
     if not user.is_enabled:
         return await send_is_not_enabled(message=callback_query.message,
                                          state=state)
-    
+
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
     await send_user_profile(chat_id=callback_query.message.chat.id)
@@ -227,7 +232,7 @@ async def process_send_rules(callback_query: CallbackQuery,
     if not user.is_enabled:
         return await send_is_not_enabled(message=callback_query.message,
                                          state=state)
-    
+
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
 
@@ -269,7 +274,7 @@ async def process_start_searching(callback_query: CallbackQuery,
     if not user.is_enabled:
         return await send_is_not_enabled(message=callback_query.message,
                                          state=state)
-    
+
     message = "❤️‍🔥 Виберіть стать співрозмовника"
     man_button = InlineKeyboardButton(text="👨 Хлопець", callback_data='SEARCH_MALE')
     woman_button = InlineKeyboardButton(text="👩 Дівчина", callback_data='SEARCH_FEMALE')
@@ -293,7 +298,7 @@ async def process_search(callback_query: CallbackQuery,
     if not user.is_enabled:
         return await send_is_not_enabled(message=callback_query.message,
                                          state=state)
-    
+
     sex_to_search: str = callback_query.data.split('_')[1]
     queue_repo.add_user_to_queue(chat_id=user.chat_id,
                                  user_id=user.user_id,
@@ -314,13 +319,12 @@ async def process_search(callback_query: CallbackQuery,
 @dp.callback_query(lambda c: c.data == 'cancel-search')
 async def process_cancel_search(callback_query: CallbackQuery,
                                 state: FSMContext):
-
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
 
     if not user.is_enabled:
         return await send_is_not_enabled(message=callback_query.message,
                                          state=state)
-    
+
     queue_repo.remove_user_from_queue(chat_id=callback_query.message.chat.id)
     await state.clear()
     await callback_query.answer(text="❌ Пошук відмінено")

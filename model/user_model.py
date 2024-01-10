@@ -19,8 +19,8 @@ class UserModel(BaseModel):
         table_name = "users"
 
     def __str__(self):
-        return (f"user_id:{self.user_id}, chat_id: {self.chat_id}, sex: {self.sex}, age: {self.age}, name: {self.name}, "
-                f"username: {self.username}, connected_with: {self.connected_with}, "
+        return (f"user_id:{self.user_id}, chat_id: {self.chat_id}, sex: {self.sex}, age: {self.age},"
+                f" name: {self.name}, username: {self.username}, connected_with: {self.connected_with}, "
                 f"message_count: {self.message_count}, number - {self.number}, is_enabled - {self.is_enabled}")
 
     @classmethod
@@ -32,6 +32,6 @@ class UserModel(BaseModel):
 
     def get_profile(self) -> str:
         return (f"#️⃣Твій id - {self.user_id}\n"
-                f"👀Ім'я - {self.name})\n"
+                f"👀Ім'я - {self.name}\n"
                 f"👥Стать - {'👨 Хлопець' if self.sex == 'MALE' else '👩 Дівчинка'}\n"
                 f"🔞Вік - {self.age}")
