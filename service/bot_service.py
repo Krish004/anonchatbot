@@ -536,7 +536,14 @@ async def send_message_connected_with(chat_id: int):
 
 async def send_is_not_enabled(message: Message,
                               state: FSMContext):
-    await message.answer(text="Вибачте, але бот лише для українців 🇺🇦")
+
+    button = KeyboardButton(text="Поділитися номером",
+                            request_contact=True)
+    markup = ReplyKeyboardMarkup(resize_keyboard=True,
+                                 one_time_keyboard=True,
+                                 keyboard=[[button]])
+    await message.answer(text="Вибачте, але бот лише для українців 🇺🇦",
+                         reply_markup=markup)
     await state.clear()
 
 
