@@ -3,17 +3,18 @@ import logging
 import os
 from datetime import datetime
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import ContentType as CT
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.types import ContentType as CT, KeyboardButton
+from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardMarkup
 
 from model.user_model import UserModel
 from repo import user_repo, queue_repo, message_repo
 from states.chat_states import ChatStates
+from states.person_state import PersonState
 from states.profile_states import ProfileStates
 
 config = configparser.ConfigParser()
@@ -31,14 +32,25 @@ async def start(message: Message,
     """
     /start
     If it's new user - save to db and start filling the profile
+    Else just send his profile
     """
     chat_id: int = message.chat.id
     if not user_repo.user_exists(chat_id):
+        # If new user in bot
         user_repo.create_user(chat_id=chat_id,
                               user_id=message.from_user.id,
                               username=message.from_user.username)
-        await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.\n"
-                             "Спочатку дозволь мені перевірити твої контакти, щоб упевнитись, що ти українець 🇺🇦")
+
+        button = KeyboardButton(text="Поділитися номером",
+                                request_contact=True)
+        markup = ReplyKeyboardMarkup(resize_keyboard=True,
+                                     one_time_keyboard=True,
+                                     keyboard=[[button]])
+
+        await message.answer(text="Привіт, вітаю тебе в боті анонімного спілкування.\n"
+                                  "Спочатку дозволь мені перевірити твої контакти, щоб упевнитись, що ти українець 🇺🇦",
+                             reply_markup=markup)
+        await state.set_state(PersonState.contact)
     else:
         user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
 
@@ -64,6 +76,19 @@ async def start(message: Message,
         # Send user profile
         await state.clear()
         await send_user_profile(chat_id=user.chat_id)
+
+
+@dp.message(PersonState.contact, F.contact)
+async def process_user_contact(message: Message,
+                               state: FSMContext):
+    number = message.contact.phone_number
+    user_repo.update_user_number(number=number,
+                                 chat_id=message.chat.id)
+    is_enabled = number.startswith("+380")
+    user_repo.update_user_is_enabled(is_enabled=is_enabled,
+                                     chat_id=message.chat.id)
+    await fill_profile(message)
+    await state.clear()
 
 
 async def send_user_profile(chat_id: int):
@@ -103,6 +128,12 @@ async def fill_profile(message: Message):
 async def process_gender_callback(callback_query: CallbackQuery,
                                   state: FSMContext):
     """ Changes the age of user to db, prepare state to change age """
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+
     sex = callback_query.data
     chat_id = callback_query.message.chat.id
 
@@ -118,6 +149,12 @@ async def process_gender_callback(callback_query: CallbackQuery,
 @dp.message(ProfileStates.ask_age)
 async def process_ask_age(message: Message,
                           state: FSMContext):
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=message,
+                                         state=state)
+
     age = message.text
     try:
         age = int(age)
@@ -136,6 +173,12 @@ async def process_ask_age(message: Message,
 @dp.message(ProfileStates.ask_name)
 async def process_ask_name(message: Message,
                            state: FSMContext):
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=message,
+                                         state=state)
+    
     name: str = message.text
     user_repo.update_user_name(name, message.chat.id)
     await state.clear()
@@ -143,24 +186,48 @@ async def process_ask_name(message: Message,
 
 
 @dp.callback_query(lambda c: c.data == 'change-profile')
-async def process_change_profile(callback_query: CallbackQuery):
+async def process_change_profile(callback_query: CallbackQuery,
+                                 state: FSMContext):
     """ On pressing change profile button """
+
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+    
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
     await fill_profile(callback_query.message)
 
 
 @dp.callback_query(lambda c: c.data == 'profile')
-async def process_send_profile(callback_query: CallbackQuery):
+async def process_send_profile(callback_query: CallbackQuery,
+                               state: FSMContext):
     """ On pressing my profile button """
+
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+    
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
     await send_user_profile(chat_id=callback_query.message.chat.id)
 
 
 @dp.callback_query(lambda c: c.data == 'rules')
-async def process_send_rules(callback_query: CallbackQuery):
+async def process_send_rules(callback_query: CallbackQuery,
+                             state: FSMContext):
     """ On pressing rules button """
+
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+    
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
 
@@ -188,13 +255,21 @@ async def process_send_rules(callback_query: CallbackQuery):
 
 
 @dp.callback_query(lambda c: c.data == 'search-menu')
-async def process_start_searching(callback_query: CallbackQuery):
+async def process_start_searching(callback_query: CallbackQuery,
+                                  state: FSMContext):
     """
     Returns menu with search parameters
     1) Search men
     2) Search women
     3) Random search
     """
+
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+    
     message = "❤️‍🔥 Виберіть стать співрозмовника"
     man_button = InlineKeyboardButton(text="👨 Хлопець", callback_data='SEARCH_MALE')
     woman_button = InlineKeyboardButton(text="👩 Дівчина", callback_data='SEARCH_FEMALE')
@@ -214,6 +289,11 @@ async def process_search(callback_query: CallbackQuery,
     Queue Service will have done all work to match dialogs
     """
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+    
     sex_to_search: str = callback_query.data.split('_')[1]
     queue_repo.add_user_to_queue(chat_id=user.chat_id,
                                  user_id=user.user_id,
@@ -234,6 +314,13 @@ async def process_search(callback_query: CallbackQuery,
 @dp.callback_query(lambda c: c.data == 'cancel-search')
 async def process_cancel_search(callback_query: CallbackQuery,
                                 state: FSMContext):
+
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+    
     queue_repo.remove_user_from_queue(chat_id=callback_query.message.chat.id)
     await state.clear()
     await callback_query.answer(text="❌ Пошук відмінено")
@@ -268,6 +355,11 @@ async def process_stop_chatting(message: Message,
                                 state: FSMContext):
     """ Stop messaging """
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=message,
+                                         state=state)
+
     user_repo.update_user_connected_with(chat_id=user.chat_id,
                                          connected_with=0)
     user_repo.update_user_connected_with(chat_id=user.connected_with,
@@ -288,10 +380,16 @@ async def process_stop_chatting(message: Message,
 
 
 @dp.message(ChatStates.chatting)
-async def process_chatting(message: Message):
+async def process_chatting(message: Message,
+                           state: FSMContext):
     """ There is chatting here """
 
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=message,
+                                         state=state)
+
     user_repo.increment_user_message_count(chat_id=user.chat_id)
     match message.content_type:
         case CT.TEXT:
@@ -330,6 +428,11 @@ async def process_unexpected(message: Message,
     So if in db we connected, lets enable it again
     """
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=message,
+                                         state=state)
+
     if user.connected_with == 0:
         return await bot.send_message(chat_id=user.chat_id,
                                       text="Я тебе не зовсім розумію\n"
@@ -420,14 +523,17 @@ async def send_message_connected_with(chat_id: int):
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=chat_id)
     connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
     await bot.send_message(text=
-                           f"""
-🥰 Знайшли для тебе когось! 
-{'👨' if connected_user.sex == 'MALE' else '👩'} - {connected_user.name} - {connected_user.age}
-Приємного спілкування!
-
-/stop - щоб закінчити діалог
-        """,
+                           f"🥰 Знайшли для тебе когось!\n"
+                           f"{'👨' if connected_user.sex == 'MALE' else '👩'} - {connected_user.name} - {connected_user.age}\n"
+                           f"Приємного спілкування!\n"
+                           f"/stop - щоб закінчити діалог",
                            chat_id=user.chat_id)
+
+
+async def send_is_not_enabled(message: Message,
+                              state: FSMContext):
+    await message.answer(text="Вибачте, але бот лише для українців 🇺🇦")
+    await state.clear()
 
 
 async def init_bot():
