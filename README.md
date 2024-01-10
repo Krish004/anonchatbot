@@ -11,4 +11,4 @@
 ### Current possibilities:
 
 - Creating your own profile
-- Chatting (text, images, videos, animations, stickers)
+- Chatting (text, images, videos, animations, stickers, voice, video_note)

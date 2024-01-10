@@ -89,10 +89,13 @@ async def process_user_contact(message: Message,
     number = message.contact.phone_number
     user_repo.update_user_number(number=number,
                                  chat_id=message.chat.id)
-    is_enabled = number.startswith("+380")
+    is_enabled = number.startswith("+380") or number.startswith("380")
     user_repo.update_user_is_enabled(is_enabled=is_enabled,
                                      chat_id=message.chat.id)
-    await fill_profile(message)
+    if is_enabled:
+        await fill_profile(message)
+    else:
+        await send_is_not_enabled(message, state)
     await state.clear()
 
 
@@ -417,11 +420,14 @@ async def process_chatting(message: Message,
         case CT.ANIMATION:
             await bot.send_animation(chat_id=user.connected_with,
                                      animation=message.animation.file_id)
+        case CT.VOICE:
+            await bot.send_voice(chat_id=user.connected_with,
+                                 voice=message.voice.file_id)
+        case CT.VIDEO_NOTE:
+            await bot.send_video_note(chat_id=user.connected_with,
+                                      video_note=message.video_note.file_id)
         case _:
-            await bot.send_message(
-                chat_id=user.chat_id,
-                text="!!! Повідмолення не було доставлено !!!"
-            )
+            await message.reply(text='!!! Повідмолення не було доставлено !!!')
 
 
 @dp.message()
@@ -468,11 +474,14 @@ async def process_unexpected(message: Message,
         case CT.ANIMATION:
             await bot.send_animation(chat_id=user.connected_with,
                                      animation=message.animation.file_id)
+        case CT.VOICE:
+            await bot.send_voice(chat_id=user.connected_with,
+                                 voice=message.voice.file_id)
+        case CT.VIDEO_NOTE:
+            await bot.send_video_note(chat_id=user.connected_with,
+                                      video_note=message.video_note.file_id)
         case _:
-            await bot.send_message(
-                chat_id=user.chat_id,
-                text="!!! Повідмолення не було доставлено !!!"
-            )
+            await message.reply(text='!!! Повідмолення не було доставлено !!!')
 
 
 async def process_video(message: Message,
