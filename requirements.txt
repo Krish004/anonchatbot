@@ -1,4 +1,4 @@
-aiogram~=3.3.0
+aiogram==3.3.0
 PyMySQL==1.0.3
 peewee==3.16.2
 cryptography==41.0.7
