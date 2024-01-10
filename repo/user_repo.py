@@ -52,5 +52,9 @@ def update_user_connected_with(chat_id: int,
     UserModel.update(connected_with=connected_with).where(UserModel.chat_id == chat_id).execute()
 
 
+def increment_user_message_count(chat_id: int) -> None:
+    UserModel.update(message_count=UserModel.message_count + 1).where(UserModel.chat_id == chat_id).execute()
+
+
 def delete_connected_with_for_all() -> None:
     UserModel.update(connected_with=0).execute()

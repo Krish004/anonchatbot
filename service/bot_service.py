@@ -37,8 +37,8 @@ async def start(message: Message,
         user_repo.create_user(chat_id=chat_id,
                               user_id=message.from_user.id,
                               username=message.from_user.username)
-        await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.")
-        await fill_profile(message)
+        await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.\n"
+                             "Спочатку дозволь мені перевірити твої контакти, щоб упевнитись, що ти українець 🇺🇦")
     else:
         user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
 
@@ -169,19 +169,15 @@ async def process_send_rules(callback_query: CallbackQuery):
     markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button]])
 
     await callback_query.message.answer(
-        text="""
-📌Правила спілкування в Анонімному чаті:
-
-1. Будь-які згадки про психоактивні речовини (наркотики).
-2. Дитяча порнографія ("ЦП").
-3. Шахрайство (Scam).
-4. Будь-яка реклама, спам.
-5. Продаж будь-чого (наприклад - продаж інтимних фотографій, відео).
-6. Будь-які дії, які порушують правила Telegram.
-7. Образлива поведінка.
-
-☀️ Бажаємо успіху та приємного спілкування 🤗
-""",
+        text="📌Правила спілкування в Анонімному чаті:\n"
+             "1. Будь-які згадки про психоактивні речовини (наркотики).\n"
+             "2. Дитяча порнографія ('ЦП').\n"
+             "3. Шахрайство (Scam).\n"
+             "4. Будь-яка реклама, спам.\n"
+             "5. Продаж будь-чого (наприклад - продаж інтимних фотографій, відео).\n"
+             "6. Будь-які дії, які порушують правила Telegram.\n"
+             "7. Образлива поведінка."
+             "\n☀️ Бажаємо успіху та приємного спілкування 🤗",
 
         # Функція захисту від фотографій, відео, стікерів 🔞
         # ✖️ Вимкнути /off
@@ -296,6 +292,7 @@ async def process_chatting(message: Message):
     """ There is chatting here """
 
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    user_repo.increment_user_message_count(chat_id=user.chat_id)
     match message.content_type:
         case CT.TEXT:
             await bot.send_message(chat_id=user.connected_with,
@@ -335,10 +332,8 @@ async def process_unexpected(message: Message,
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
     if user.connected_with == 0:
         return await bot.send_message(chat_id=user.chat_id,
-                                      text="""
-Я тебе не зовсім розумію
-Тикай /start, якщо щось пішло не так
-        """)
+                                      text="Я тебе не зовсім розумію\n"
+                                           "/start, якщо щось пішло не так")
 
     # If user is connected with someone
     connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
@@ -346,6 +341,7 @@ async def process_unexpected(message: Message,
     await set_state(chat_id=connected_user.chat_id,
                     user_id=connected_user.user_id,
                     custom_state=ChatStates.chatting)
+    user_repo.increment_user_message_count(chat_id=user.chat_id)
 
     match message.content_type:
         case CT.TEXT:
