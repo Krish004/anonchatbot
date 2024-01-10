@@ -290,13 +290,14 @@ async def process_stop_chatting(message: Message,
     await clear_state(chat_id=user.connected_with,
                       user_id=connected_user.user_id)
 
+
 @dp.message(ChatStates.chatting)
 async def process_chatting(message: Message):
     """ There is chatting here """
 
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
     match message.content_type:
         case CT.TEXT:
-            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
             await bot.send_message(chat_id=user.connected_with,
                                    text=message.text)
             message_repo.save_message(chat_id_from=user.chat_id,
@@ -304,15 +305,23 @@ async def process_chatting(message: Message):
                                       message=message.text,
                                       date=datetime.now())
         case CT.PHOTO:
-            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
             await process_photo(message=message,
                                 user=user)
+        case CT.VIDEO:
+            await process_video(message=message,
+                                user=user)
         case CT.STICKER:
-            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
-
             await bot.send_sticker(
                 chat_id=user.connected_with,
                 sticker=message.sticker.file_id
+            )
+        case CT.ANIMATION:
+            await bot.send_animation(chat_id=user.connected_with,
+                                     animation=message.animation.file_id)
+        case _:
+            await bot.send_message(
+                chat_id=user.chat_id,
+                text="!!! Повідмолення не було доставлено !!!"
             )
 
 
@@ -323,29 +332,68 @@ async def process_unexpected(message: Message,
     Sometimes connection may be lost.
     So if in db we connected, lets enable it again
     """
-    match message.content_type:
-        case CT.TEXT:
-            """ Handling text """
-            user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
-            if user.connected_with != 0:
-                await state.set_state(ChatStates.chatting)
-
-                await bot.send_message(chat_id=user.connected_with,
-                                       text=message.text)
-                return
-
-            """ Default message """
-            await bot.send_message(chat_id=user.chat_id,
-                                   text="""
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    if user.connected_with == 0:
+        return await bot.send_message(chat_id=user.chat_id,
+                                      text="""
 Я тебе не зовсім розумію
 Тикай /start, якщо щось пішло не так
-""")
-        case CT.PHOTO:
-            """ Handling photo """
-            user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+        """)
 
+    # If user is connected with someone
+    connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
+    await state.set_state(ChatStates.chatting)
+    await set_state(chat_id=connected_user.chat_id,
+                    user_id=connected_user.user_id,
+                    custom_state=ChatStates.chatting)
+
+    match message.content_type:
+        case CT.TEXT:
+            await bot.send_message(chat_id=user.connected_with,
+                                   text=message.text)
+        case CT.STICKER:
+            await bot.send_sticker(
+                chat_id=user.connected_with,
+                sticker=message.sticker.file_id
+            )
+        case CT.PHOTO:
             await process_photo(message=message,
                                 user=user)
+        case CT.VIDEO:
+            await process_video(message=message,
+                                user=user)
+        case CT.ANIMATION:
+            await bot.send_animation(chat_id=user.connected_with,
+                                     animation=message.animation.file_id)
+        case _:
+            await bot.send_message(
+                chat_id=user.chat_id,
+                text="!!! Повідмолення не було доставлено !!!"
+            )
+
+
+async def process_video(message: Message,
+                        user: UserModel):
+    """
+    Current method process video during the chatting
+    It Saves video to db and if user connected with someone, sends photo
+    """
+    if user.connected_with != 0:
+        await bot.send_video(chat_id=user.connected_with,
+                             video=message.video.file_id,
+                             caption=message.text)
+
+    try:
+        directory_name = f'./videos/{message.chat.id}'
+        file_name: str = f'{directory_name}/{message.video.file_id}.mp4'
+        if not os.path.exists(directory_name):
+            os.makedirs(directory_name)
+        file = await bot.get_file(message.video.file_id)
+        file_path = file.file_path
+        await bot.download_file(file_path, file_name)
+
+    except():
+        pass
 
 
 async def process_photo(message: Message,
@@ -354,6 +402,11 @@ async def process_photo(message: Message,
     Current method process photo during the chatting
     It Saves photo to db and if user connected with someone, sends photo
     """
+    if user.connected_with != 0:
+        await bot.send_photo(chat_id=user.connected_with,
+                             photo=message.photo[-1].file_id,
+                             caption=message.text)
+
     try:
         directory_name = f'./images/{message.chat.id}'
         file_name: str = f'{directory_name}/{message.photo[1].file_id}.jpg'
@@ -362,10 +415,7 @@ async def process_photo(message: Message,
         file = await bot.get_file(message.photo[-1].file_id)
         file_path = file.file_path
         await bot.download_file(file_path, file_name)
-        if user.connected_with != 0:
-            await bot.send_photo(chat_id=user.connected_with,
-                                 photo=message.photo[-1].file_id,
-                                 caption=message.text)
+
     except():
         pass
 
