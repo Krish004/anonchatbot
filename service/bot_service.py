@@ -33,8 +33,6 @@ async def start(message: Message,
     /start
     If it's new user - save to db and start filling the profile
     """
-    await state.clear()
-
     chat_id: int = message.chat.id
     if not user_repo.user_exists(chat_id):
         user_repo.create_user(chat_id=chat_id,
@@ -43,7 +41,30 @@ async def start(message: Message,
         await message.answer("Привіт, вітаю тебе в боті анонімного спілкування.")
         await fill_profile(message)
     else:
-        await send_user_profile(chat_id=message.chat.id)
+        user: UserModel = user_repo.get_user_by_chat_id(message.chat.id)
+
+        # if was in queue:
+        queue_repo.remove_user_from_queue(message.chat.id)
+
+        # If was connected with:
+        if user.connected_with != 0:
+            # Disconnect
+            connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
+            user_repo.update_user_connected_with(chat_id=user.chat_id,
+                                                 connected_with=0)
+            user_repo.update_user_connected_with(chat_id=user.connected_with,
+                                                 connected_with=0)
+
+            # Process remote user
+            await bot.send_message(chat_id=connected_user.chat_id,
+                                   text="😔 Діалог припинено")
+            await send_user_profile(chat_id=connected_user.chat_id)
+            await clear_state(chat_id=user.connected_with,
+                              user_id=connected_user.user_id)
+
+        # Send user profile
+        await state.clear()
+        await send_user_profile(chat_id=user.chat_id)
 
 
 async def send_user_profile(chat_id: int):

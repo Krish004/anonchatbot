@@ -8,8 +8,8 @@ class UserModel(BaseModel):
     chat_id = BigIntegerField()
     sex = TextField()
     age = IntegerField()
-    name = TextField()
-    username = TextField()
+    name = TextField(null=True)
+    username = TextField(null=True)
     connected_with = BigIntegerField()
     message_count = IntegerField()
 
