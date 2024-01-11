@@ -8,7 +8,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import ContentType as CT, KeyboardButton
+from aiogram.types import ContentType as CT, KeyboardButton, ReplyKeyboardRemove
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardMarkup
 
 from model.user_model import UserModel
@@ -93,6 +93,8 @@ async def process_user_contact(message: Message,
     user_repo.update_user_is_enabled(is_enabled=is_enabled,
                                      chat_id=message.chat.id)
     if is_enabled:
+        await message.answer(text="Успішно верифіковано",
+                             reply_markup=ReplyKeyboardRemove())
         await fill_profile(message)
     else:
         await send_is_not_enabled(message, state)
@@ -545,7 +547,6 @@ async def send_message_connected_with(chat_id: int):
 
 async def send_is_not_enabled(message: Message,
                               state: FSMContext):
-
     button = KeyboardButton(text="Поділитися номером",
                             request_contact=True)
     markup = ReplyKeyboardMarkup(resize_keyboard=True,
