@@ -482,6 +482,35 @@ async def process_send_link(message: Message):
                          parse_mode=ParseMode.MARKDOWN_V2)
 
 
+@dp.message(Command('admin'))
+async def process_admin(message: Message):
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+    if not user.is_admin:
+        return await message.answer("Відмовлено в доступі")
+
+    await message.answer(text="1) Щоб надіслати комусь повідомлення використовуйте наступний формат:\n"
+                              "'/sendmsg_admin,id,message' Наприклад:\n"
+                              "'/sendmsg_admin,123456,Поводь себе пристойно'")
+
+
+@dp.message(lambda message: message.text.startswith('/sendmsg_admin'))
+async def process_admin_send_message(message: Message):
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+
+    if not user.is_admin:
+        return await message.answer("Відмовлено в доступі")
+
+    try:
+        chat_id_to_send: int = int(message.text.split(',')[1])
+        text: str = message.text.split(',')[2]
+        await bot.send_message(chat_id=chat_id_to_send,
+                               text="!!! Повідомлення від Адміна !!!\n"
+                                    f"{text}")
+        await message.answer("Повідомлення успішно доставлено")
+    except Exception:
+        await message.answer("Невірний формат")
+
 async def ask_reaction(from_chat_id: int,
                        to_chat_id: int,
                        state: FSMContext):

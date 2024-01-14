@@ -18,6 +18,7 @@ class UserModel(BaseModel):
     dislikes = IntegerField()
     reports = IntegerField()
     is_enabled_media = BooleanField(default=True)
+    is_admin = BooleanField(default=False)
 
     class Meta:
         table_name = "users"
@@ -27,7 +28,7 @@ class UserModel(BaseModel):
                 f" name: {self.name}, username: {self.username}, connected_with: {self.connected_with}, "
                 f"message_count: {self.message_count}, number - {self.number},"
                 f"likes - {self.likes}, dislikes - {self.dislikes}, reports - {self.reports}, "
-                f"is_enabled_media - {self.is_enabled_media}, is_enabled - {self.is_enabled}")
+                f"is_enabled_media - {self.is_enabled_media}, is_enabled - {self.is_enabled}, is_admin - {self.is_admin}")
 
     @classmethod
     def from_dict(cls, user_dict):
