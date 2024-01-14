@@ -12,7 +12,7 @@ from aiogram.types import ContentType as CT, KeyboardButton, ReplyKeyboardRemove
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardMarkup
 
 from model.user_model import UserModel
-from repo import user_repo, queue_repo, message_repo
+from repo import user_repo, queue_repo, message_repo, intimate_queue_repo
 from states.chat_states import ChatStates
 from states.profile_states import ProfileStates
 
@@ -110,8 +110,12 @@ async def send_user_profile(chat_id: int):
 
     fill_profile_button = InlineKeyboardButton(text="👤 Заповинти профіль наново", callback_data="change-profile")
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
+    start_intimate_chatting_button = InlineKeyboardButton(text="🔞 Пошлий чат", callback_data="search-intimate-menu")
     rules_button = InlineKeyboardButton(text="📕 Правила", callback_data="rules")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button], [rules_button]])
+    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button],
+                                                   [start_chatting_button],
+                                                   [start_intimate_chatting_button],
+                                                   [rules_button]])
 
     await bot.send_message(chat_id=chat_id,
                            text=user.get_profile(),
@@ -243,7 +247,10 @@ async def process_send_rules(callback_query: CallbackQuery,
 
     fill_profile_button = InlineKeyboardButton(text="👤 Мій профіль", callback_data="profile")
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button], [start_chatting_button]])
+    start_intimate_chatting_button = InlineKeyboardButton(text="🔞 Пошлий чат", callback_data="search-intimate-menu")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button],
+                                                   [start_chatting_button],
+                                                   [start_intimate_chatting_button]])
 
     await callback_query.message.answer(
         text="📌Правила спілкування в Анонімному чаті:\n"
@@ -284,11 +291,55 @@ async def process_start_searching(callback_query: CallbackQuery,
     man_button = InlineKeyboardButton(text="👨 Хлопець", callback_data='SEARCH_MALE')
     woman_button = InlineKeyboardButton(text="👩 Дівчина", callback_data='SEARCH_FEMALE')
     random_button = InlineKeyboardButton(text="👫 Випадковий діалог", callback_data='SEARCH_RANDOM')
-    markup = InlineKeyboardMarkup(inline_keyboard=[[man_button, woman_button], [random_button]])
+    go_back_button = InlineKeyboardButton(text="👤 Мій профіль", callback_data='go_back_to_profile')
+    markup = InlineKeyboardMarkup(inline_keyboard=[[man_button, woman_button], [random_button], [go_back_button]])
     await callback_query.message.answer(text=message,
                                         reply_markup=markup)
     await bot.delete_message(chat_id=callback_query.message.chat.id,
                              message_id=callback_query.message.message_id)
+
+
+@dp.callback_query(lambda c: c.data == 'search-intimate-menu')
+async def process_start_searching(callback_query: CallbackQuery,
+                                  state: FSMContext):
+    """
+    Returns menu with search parameters
+    1) Search men
+    2) Search women
+    3) Random search
+    """
+
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+
+    message = ("🔞Спеціальний чат для тих, хто любить хтивки\n"
+               "❤️‍🔥 Виберіть стать співрозмовника")
+    man_button = InlineKeyboardButton(text="👨 Хлопець 🔞", callback_data='INTIMATE_MALE')
+    woman_button = InlineKeyboardButton(text="👩 Дівчина 🔞", callback_data='INTIMATE_FEMALE')
+    random_button = InlineKeyboardButton(text="👫 Випадковий діалог 🔞", callback_data='INTIMATE_RANDOM')
+    go_back_button = InlineKeyboardButton(text="👤 Мій профіль", callback_data='go_back_to_profile')
+    markup = InlineKeyboardMarkup(inline_keyboard=[[man_button, woman_button], [random_button], [go_back_button]])
+    await callback_query.message.answer(text=message,
+                                        reply_markup=markup)
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+
+
+@dp.callback_query(lambda c: c.data == 'go_back_to_profile')
+async def process_go_back_to_profile(callback_query: CallbackQuery,
+                                     state: FSMContext):
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
+
+    await send_user_profile(user.chat_id)
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+    await state.clear()
 
 
 @dp.callback_query(lambda c: c.data.startswith('SEARCH_'))
@@ -338,25 +389,35 @@ async def process_cancel_search(callback_query: CallbackQuery,
     await send_user_profile(chat_id=callback_query.message.chat.id)
 
 
-async def set_state(chat_id: int,
-                    user_id: int,
-                    custom_state: State):
-    state = dp.fsm.resolve_context(
-        bot=bot,
-        chat_id=chat_id,
-        user_id=user_id
-    )
-    await state.set_state(custom_state)
+@dp.callback_query(lambda c: c.data.startswith('INTIMATE_'))
+async def process_intimate_chatting(callback_query: CallbackQuery,
+                                    state: FSMContext):
+    """
+    There is the second room with the queue
+    To process searching just create new user_queue and save it to db in table with 'intimate'
+    Queue Service will have done all work to match dialogs
+    """
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
 
+    if not user.is_enabled:
+        return await send_is_not_enabled(message=callback_query.message,
+                                         state=state)
 
-async def clear_state(chat_id: int,
-                      user_id: int):
-    state = dp.fsm.resolve_context(
-        bot=bot,
-        chat_id=chat_id,
-        user_id=user_id
-    )
-    await state.clear()
+    sex_to_search: str = callback_query.data.split('_')[1]
+    intimate_queue_repo.add_user_to_queue(chat_id=user.chat_id,
+                                          user_id=user.user_id,
+                                          sex=user.sex,
+                                          sex_to_search=sex_to_search)
+
+    cancel_button = InlineKeyboardButton(text="Відмінити пошук",
+                                         callback_data="cancel-search")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[cancel_button]])
+
+    await callback_query.message.answer(text="🔍 Почекайте, шукаю...",
+                                        reply_markup=markup)
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
+    await state.set_state(ChatStates.search)
 
 
 @dp.message(Command('stop'))
@@ -554,6 +615,27 @@ async def send_is_not_enabled(message: Message,
                                  keyboard=[[button]])
     await message.answer(text="Вибачте, але бот лише для українців 🇺🇦",
                          reply_markup=markup)
+    await state.clear()
+
+
+async def set_state(chat_id: int,
+                    user_id: int,
+                    custom_state: State):
+    state = dp.fsm.resolve_context(
+        bot=bot,
+        chat_id=chat_id,
+        user_id=user_id
+    )
+    await state.set_state(custom_state)
+
+
+async def clear_state(chat_id: int,
+                      user_id: int):
+    state = dp.fsm.resolve_context(
+        bot=bot,
+        chat_id=chat_id,
+        user_id=user_id
+    )
     await state.clear()
 
 

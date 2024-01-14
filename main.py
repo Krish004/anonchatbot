@@ -1,21 +1,23 @@
 import asyncio
 
 from config import db_config
+from model.intimate_queue_model import IntimateQueueModel
 from model.message_model import MessageModel
 from model.queue_user_model import QueueUserModel
 from model.user_model import UserModel
-from repo import queue_repo, user_repo
+from repo import queue_repo, user_repo, intimate_queue_repo
 from service.bot_service import init_bot
 from service.queue_service import start_queue_worker
 
 
 def prepare_db():
     with db_config.db as db:
-        db.create_tables([UserModel, QueueUserModel, MessageModel])
+        db.create_tables([UserModel, QueueUserModel, IntimateQueueModel, MessageModel])
 
 
 def delete_old_queue():
     queue_repo.delete_all()
+    intimate_queue_repo.delete_all()
     user_repo.delete_connected_with_for_all()
 
 
