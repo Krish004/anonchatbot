@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State
@@ -476,9 +477,9 @@ async def process_send_link(message: Message):
     if user.connected_with != 0:
         await bot.send_message(chat_id=user.connected_with,
                                text=f"[{message.from_user.username}]({message.from_user.url})",
-                               parse_mode='MarkdownV2')
+                               parse_mode=ParseMode.MARKDOWN_V2)
     await message.answer(text=f"[{message.from_user.username}]({message.from_user.url})",
-                         parse_mode='MarkdownV2')
+                         parse_mode=ParseMode.MARKDOWN_V2)
 
 
 async def ask_reaction(from_chat_id: int,
