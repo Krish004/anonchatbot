@@ -438,15 +438,52 @@ async def process_stop_chatting(message: Message,
     connected_user = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
 
     # Process user
-    await send_user_profile(chat_id=message.chat.id)
     await state.clear()
+    await ask_reaction(from_chat_id=user.chat_id,
+                       to_chat_id=user.connected_with,
+                       state=state)
 
     # Process remote user
     await bot.send_message(chat_id=connected_user.chat_id,
                            text="😔 Діалог припинено")
-    await send_user_profile(chat_id=connected_user.chat_id)
+    await ask_reaction(from_chat_id=user.connected_with,
+                       to_chat_id=user.chat_id,
+                       state=state)
     await clear_state(chat_id=user.connected_with,
                       user_id=connected_user.user_id)
+
+
+async def ask_reaction(from_chat_id: int,
+                       to_chat_id: int,
+                       state: FSMContext):
+    like_button = InlineKeyboardButton(text="👍 Лайк", callback_data=f"REACTION_LIKE_{to_chat_id}")
+    dislike_button = InlineKeyboardButton(text="👎 Дизлайк", callback_data=f"REACTION_DISLIKE_{to_chat_id}")
+    report_button = InlineKeyboardButton(text="🚨 Репорт", callback_data=f"REACTION_REPORT_{to_chat_id}")
+    go_back_button = InlineKeyboardButton(text="👤 Мій профіль", callback_data='go_back_to_profile')
+
+    markup = InlineKeyboardMarkup(inline_keyboard=[[like_button], [dislike_button], [report_button], [go_back_button]])
+    await bot.send_message(chat_id=from_chat_id,
+                           text="Оцініть свого останнього співрозмовника",
+                           reply_markup=markup)
+    await state.set_state(ChatStates.reaction)
+
+
+@dp.callback_query(lambda c: c.data.startswith("REACTION_"))
+async def process_reaction(callback_query: CallbackQuery):
+    reaction_type: str = callback_query.data.split("_")[1]
+    to_chat_id: int = int(callback_query.data.split("_")[2])
+
+    match reaction_type:
+        case "LIKE":
+            user_repo.increment_user_likes(chat_id=to_chat_id)
+        case "DISLIKE":
+            user_repo.increment_user_dislikes(chat_id=to_chat_id)
+        case "REPORT":
+            user_repo.increment_user_reports(chat_id=to_chat_id)
+
+    await send_user_profile(chat_id=callback_query.message.chat.id)
+    await bot.delete_message(chat_id=callback_query.message.chat.id,
+                             message_id=callback_query.message.message_id)
 
 
 @dp.message(ChatStates.chatting)

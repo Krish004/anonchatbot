@@ -69,3 +69,14 @@ def update_user_is_enabled(is_enabled: bool,
                            chat_id: int):
     UserModel.update(is_enabled=is_enabled).where(UserModel.chat_id == chat_id).execute()
 
+
+def increment_user_likes(chat_id: int):
+    UserModel.update(likes=UserModel.likes + 1).where(UserModel.chat_id == chat_id).execute()
+
+
+def increment_user_dislikes(chat_id: int):
+    UserModel.update(dislikes=UserModel.dislikes + 1).where(UserModel.chat_id == chat_id).execute()
+
+
+def increment_user_reports(chat_id: int):
+    UserModel.update(reports=UserModel.reports + 1).where(UserModel.chat_id == chat_id).execute()
