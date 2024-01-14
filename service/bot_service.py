@@ -454,7 +454,7 @@ async def process_stop_chatting(message: Message,
 
 
 @dp.message(Command('on'))
-async def process_turn_or_media(message: Message):
+async def process_turn_on_media(message: Message):
     """ Включити отримання медіа """
     user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
                                            is_enabled_media=True)
@@ -462,11 +462,23 @@ async def process_turn_or_media(message: Message):
 
 
 @dp.message(Command('off'))
-async def process_turn_or_media(message: Message):
+async def process_turn_off_media(message: Message):
     """ Відключити отримання медіа """
     user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
                                            is_enabled_media=False)
     await message.answer("❌ Отримання медіа вимкнено")
+
+
+@dp.message(Command('link'))
+async def process_send_link(message: Message):
+    """ Надіслати посилання на свій профіль """
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    if user.connected_with != 0:
+        await bot.send_message(chat_id=user.connected_with,
+                               text=f"[{message.from_user.username}]({message.from_user.url})",
+                               parse_mode='MarkdownV2')
+    await message.answer(text=f"[{message.from_user.username}]({message.from_user.url})",
+                         parse_mode='MarkdownV2')
 
 
 async def ask_reaction(from_chat_id: int,
@@ -567,9 +579,9 @@ async def process_unexpected(message: Message,
                                          state=state)
 
     if user.connected_with == 0:
-        return await bot.send_message(chat_id=user.chat_id,
-                                      text="Я тебе не зовсім розумію\n"
-                                           "/start, якщо щось пішло не так")
+        return await message.reply(chat_id=user.chat_id,
+                                   text="Я тебе не зовсім розумію\n"
+                                        "/start, якщо щось пішло не так")
 
     # If user is connected with someone
     connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
