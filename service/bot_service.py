@@ -453,6 +453,22 @@ async def process_stop_chatting(message: Message,
                       user_id=connected_user.user_id)
 
 
+@dp.message(Command('on'))
+async def process_turn_or_media(message: Message):
+    """ Включити отримання медіа """
+    user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
+                                           is_enabled_media=True)
+    await message.answer("✅ Отримання медіа увімкнено")
+
+
+@dp.message(Command('off'))
+async def process_turn_or_media(message: Message):
+    """ Відключити отримання медіа """
+    user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
+                                           is_enabled_media=False)
+    await message.answer("❌ Отримання медіа вимкнено")
+
+
 async def ask_reaction(from_chat_id: int,
                        to_chat_id: int,
                        state: FSMContext):
@@ -643,22 +659,6 @@ async def process_photo(message: Message,
 
     except():
         pass
-
-
-@dp.message(Command('on'))
-async def process_turn_or_media(message: Message):
-    """ Включити отримання медіа """
-    user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
-                                           is_enabled_media=True)
-    await message.answer("✅ Отримання медіа увімкнено")
-
-
-@dp.message(Command('off'))
-async def process_turn_or_media(message: Message):
-    """ Відключити отримання медіа """
-    user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
-                                           is_enabled_media=False)
-    await message.answer("❌ Отримання медіа вимкнено")
 
 
 async def send_message_connected_with(chat_id: int):
