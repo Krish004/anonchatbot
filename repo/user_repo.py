@@ -80,3 +80,8 @@ def increment_user_dislikes(chat_id: int):
 
 def increment_user_reports(chat_id: int):
     UserModel.update(reports=UserModel.reports + 1).where(UserModel.chat_id == chat_id).execute()
+
+
+def update_user_is_enabled_media(chat_id: int,
+                                 is_enabled_media: bool):
+    UserModel.update(is_enabled_media=is_enabled_media).where(UserModel.chat_id == chat_id).execute()

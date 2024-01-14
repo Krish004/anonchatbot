@@ -492,10 +492,17 @@ async def process_chatting(message: Message,
     """ There is chatting here """
 
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
+    connected_user: UserModel = user_repo.get_user_by_chat_id(chat_id=user.connected_with)
 
     if not user.is_enabled:
         return await send_is_not_enabled(message=message,
                                          state=state)
+
+    if message.content_type != CT.TEXT and not connected_user.is_enabled_media:
+        await message.answer(text="!!! В користувача відключено медіа !!!")
+        await bot.send_message(chat_id=connected_user.chat_id,
+                               text="!!! Спроба надіслати медіа була відхилена !!!")
+        return
 
     user_repo.increment_user_message_count(chat_id=user.chat_id)
     match message.content_type:
@@ -555,6 +562,12 @@ async def process_unexpected(message: Message,
                     user_id=connected_user.user_id,
                     custom_state=ChatStates.chatting)
     user_repo.increment_user_message_count(chat_id=user.chat_id)
+
+    if message.content_type != CT.TEXT and not connected_user.is_enabled_media:
+        await message.answer(text="!!! В користувача відключено медіа !!!")
+        await bot.send_message(chat_id=connected_user.chat_id,
+                               text="!!! Спроба надіслати медіа була відхилена !!!")
+        return
 
     match message.content_type:
         case CT.TEXT:
@@ -630,6 +643,22 @@ async def process_photo(message: Message,
 
     except():
         pass
+
+
+@dp.message(Command('on'))
+async def process_turn_or_media(message: Message):
+    """ Включити отримання медіа """
+    user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
+                                           is_enabled_media=True)
+    await message.answer("✅ Отримання медіа увімкнено")
+
+
+@dp.message(Command('off'))
+async def process_turn_or_media(message: Message):
+    """ Відключити отримання медіа """
+    user_repo.update_user_is_enabled_media(chat_id=message.chat.id,
+                                           is_enabled_media=False)
+    await message.answer("❌ Отримання медіа вимкнено")
 
 
 async def send_message_connected_with(chat_id: int):
