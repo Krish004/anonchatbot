@@ -298,7 +298,7 @@ async def process_invite_friends(callback_query: CallbackQuery):
              "🔗 Запрошувальне посилання для друга:\n"
              "```\n"
              f"https://t.me/{bot_info.username}?start={callback_query.message.chat.id}\n"
-             "```\n\n"
+             "```\n"
              f"Кількість переходів за посиланням: {user.invited}",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=markup)
