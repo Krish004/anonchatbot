@@ -287,13 +287,15 @@ async def process_send_rules(callback_query: CallbackQuery,
 @dp.callback_query(lambda c: c.data == 'invite')
 async def process_invite_friends(callback_query: CallbackQuery):
     """ Invite Friends by referral link """
+    user: UserModel = user_repo.get_user_by_chat_id(chat_id=callback_query.message.chat.id)
     bot_info = await bot.get_me()
     await callback_query.message.answer(
         text="👫 Запрошуйте друзів в бот Анонімних знайомств за персональним запрошувальним посиланням\!\n"
              "🔗 Запрошувальне посилання для друга:\n"
              "```\n"
              f"https://t.me/{bot_info.username}?start={callback_query.message.chat.id}\n"
-             "```",
+             "```\n\n"
+             f"Кількість переходів за посиланням: {user.invited}",
         parse_mode=ParseMode.MARKDOWN_V2)
 
 
