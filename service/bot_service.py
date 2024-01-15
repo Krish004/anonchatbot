@@ -294,7 +294,7 @@ async def process_invite_friends(callback_query: CallbackQuery):
                                           callback_data='go_back_to_profile')
     markup = InlineKeyboardMarkup(inline_keyboard=[[go_back_button]])
     await callback_query.message.answer(
-        text="👫 Запрошуйте друзів в бот Анонімних знайомств за персональним запрошувальним посиланням\!\n"
+        text="👫 Запрошуйте друзів в бот Анонімних знайомств за персональним запрошувальним посиланням\!\n\n"
              "🔗 Запрошувальне посилання для друга:\n"
              "```\n"
              f"https://t.me/{bot_info.username}?start={callback_query.message.chat.id}\n"
