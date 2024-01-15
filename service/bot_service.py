@@ -528,7 +528,7 @@ async def process_admin(message: Message):
                               "'/sendmsg_admin,123456,Поводь себе пристойно'")
 
 
-@dp.message(lambda message: message.text.startswith('/sendmsg_admin'))
+@dp.message(lambda message: message.text and message.text.startswith('/sendmsg_admin'))
 async def process_admin_send_message(message: Message):
     user: UserModel = user_repo.get_user_by_chat_id(chat_id=message.chat.id)
 
