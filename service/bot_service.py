@@ -36,6 +36,14 @@ async def start(message: Message,
     """
     chat_id: int = message.chat.id
     if not user_repo.user_exists(chat_id):
+
+        # If by referral
+        try:
+            id_from: int = int(message.text.split(' ')[1])
+            if user_repo.user_exists(chat_id=id_from):
+                user_repo.increment_user_invited(chat_id=id_from)
+        except:
+            pass
         # If new user in bot
         user_repo.create_user(chat_id=chat_id,
                               user_id=message.from_user.id,
@@ -113,10 +121,12 @@ async def send_user_profile(chat_id: int):
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
     start_intimate_chatting_button = InlineKeyboardButton(text="🔞 Пошлий чат", callback_data="search-intimate-menu")
     rules_button = InlineKeyboardButton(text="📕 Правила", callback_data="rules")
+    referral_button = InlineKeyboardButton(text="👫 Запросити друга", callback_data="invite")
     markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button],
                                                    [start_chatting_button],
                                                    [start_intimate_chatting_button],
-                                                   [rules_button]])
+                                                   [rules_button],
+                                                   [referral_button]])
 
     await bot.send_message(chat_id=chat_id,
                            text=user.get_profile(),
@@ -249,9 +259,11 @@ async def process_send_rules(callback_query: CallbackQuery,
     fill_profile_button = InlineKeyboardButton(text="👤 Мій профіль", callback_data="profile")
     start_chatting_button = InlineKeyboardButton(text="💌 Пошук співрозмовника", callback_data="search-menu")
     start_intimate_chatting_button = InlineKeyboardButton(text="🔞 Пошлий чат", callback_data="search-intimate-menu")
+    referral_button = InlineKeyboardButton(text="👫 Запросити друга", callback_data="invite")
     markup = InlineKeyboardMarkup(inline_keyboard=[[fill_profile_button],
                                                    [start_chatting_button],
-                                                   [start_intimate_chatting_button]])
+                                                   [start_intimate_chatting_button],
+                                                   [referral_button]])
 
     await callback_query.message.answer(
         text="📌Правила спілкування в Анонімному чаті:\n"
@@ -270,6 +282,19 @@ async def process_send_rules(callback_query: CallbackQuery,
 
         reply_markup=markup
     )
+
+
+@dp.callback_query(lambda c: c.data == 'invite')
+async def process_invite_friends(callback_query: CallbackQuery):
+    """ Invite Friends by referral link """
+    bot_info = await bot.get_me()
+    await callback_query.message.answer(
+        text="👫 Запрошуйте друзів в бот Анонімних знайомств за персональним запрошувальним посиланням\!\n"
+             "🔗 Запрошувальне посилання для друга:\n"
+             "```\n"
+             f"https://t.me/{bot_info.username}?start={callback_query.message.chat.id}\n"
+             "```",
+        parse_mode=ParseMode.MARKDOWN_V2)
 
 
 @dp.callback_query(lambda c: c.data == 'search-menu')
@@ -511,6 +536,7 @@ async def process_admin_send_message(message: Message):
     except Exception:
         await message.answer("Невірний формат")
 
+
 async def ask_reaction(from_chat_id: int,
                        to_chat_id: int,
                        state: FSMContext):
@@ -609,8 +635,7 @@ async def process_unexpected(message: Message,
                                          state=state)
 
     if user.connected_with == 0:
-        return await message.reply(chat_id=user.chat_id,
-                                   text="Я тебе не зовсім розумію\n"
+        return await message.reply(text="Я тебе не зовсім розумію\n"
                                         "/start, якщо щось пішло не так")
 
     # If user is connected with someone

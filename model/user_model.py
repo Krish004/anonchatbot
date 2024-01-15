@@ -19,6 +19,7 @@ class UserModel(BaseModel):
     reports = IntegerField()
     is_enabled_media = BooleanField(default=True)
     is_admin = BooleanField(default=False)
+    invited = IntegerField()
 
     class Meta:
         table_name = "users"
@@ -27,7 +28,7 @@ class UserModel(BaseModel):
         return (f"user_id:{self.user_id}, chat_id: {self.chat_id}, sex: {self.sex}, age: {self.age},"
                 f" name: {self.name}, username: {self.username}, connected_with: {self.connected_with}, "
                 f"message_count: {self.message_count}, number - {self.number},"
-                f"likes - {self.likes}, dislikes - {self.dislikes}, reports - {self.reports}, "
+                f"likes - {self.likes}, dislikes - {self.dislikes}, reports - {self.reports}, invited - {self.invited}"
                 f"is_enabled_media - {self.is_enabled_media}, is_enabled - {self.is_enabled}, is_admin - {self.is_admin}")
 
     @classmethod
