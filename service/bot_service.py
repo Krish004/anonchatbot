@@ -415,6 +415,8 @@ async def process_cancel_search(callback_query: CallbackQuery,
                                          state=state)
 
     queue_repo.remove_user_from_queue(chat_id=callback_query.message.chat.id)
+    intimate_queue_repo.remove_user_from_queue(chat_id=callback_query.message.chat.id)
+
     await state.clear()
     await callback_query.answer(text="❌ Пошук відмінено")
     await bot.delete_message(chat_id=callback_query.message.chat.id,
