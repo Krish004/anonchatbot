@@ -27,7 +27,7 @@ async def main():
 
 if __name__ == '__main__':
     prepare_db()
-    delete_old_queue()
+    # delete_old_queue()
 
     loop = asyncio.get_event_loop()
     try:
