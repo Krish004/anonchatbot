@@ -39,9 +39,9 @@ class UserModel(BaseModel):
         return cls(**user_dict)
 
     def get_profile(self) -> str:
-        return (f"#️⃣Твій id - {self.user_id}\n"
+        return (f"#️⃣Thy id - {self.user_id}\n"
                 f"👀Ім'я - {self.name}\n"
-                f"👥Стать - {'👨 Хлопець' if self.sex == 'MALE' else '👩 Дівчинка'}\n"
-                f"🔞Вік - {self.age}\n\n"
-                f"Оцінки ваших діалогів:\n"
+                f"👥Become - {'👨 Boy' if self.sex == 'MALE' else '👩 Girl'}\n"
+                f"🔞Age - {self.age}\n\n"
+                f"Scores of your dialogues:\n"
                 f"👍 - {self.likes} 👎 - {self.dislikes} 🚨 - {self.reports}")
